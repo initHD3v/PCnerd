@@ -58,9 +58,11 @@
 ## Admin Auth
 
 - API routes under `/api/admin/*` are protected via `src/proxy.ts` (Next.js 16 Proxy/Middleware).
-- Requires `x-api-key` header matching `ADMIN_API_KEY` env var.
-- Admin page (`/admin`) shows a login form if not authenticated; key stored in `sessionStorage`.
-- Set `ADMIN_API_KEY` in `.env` (`.env.example` included — copy and change for production).
+- Uses JWT httpOnly cookie (`bw_admin_token`), not API key.
+- Admin page (`/admin`) shows a login form if not authenticated; session stored in cookie.
+- Two roles: `superadmin` (full access) and `admin` (components + sync only).
+- Rate limit: 5 login attempts per 15 minutes per IP.
+- `.env` requires `JWT_SECRET` (see `.env.example`).
 
 ## Architecture
 
@@ -84,3 +86,15 @@
 - `.next/` — Next.js build output (gitignored).
 - `dev.db` — SQLite database (checked in — do not delete).
 - `prisma/migrations/` — migration history (checked in).
+
+## Next Up — Sempurnakan Fitur AI
+
+Pekerjaan untuk besok (prioritas):
+
+- [ ] **Bottleneck analysis berbasis benchmark** — ganti rasio harga dengan perbandingan performa real dari data benchmark. Contoh: CPU terlalu lemah untuk GPU jika skor PassMark CPU < 50% GPU. Butuh skor benchmark CPU di `benchmarks.ts`.
+- [ ] **Upgrade impact calculator** — hitung uplift FPS konkret saat upgrade GPU/CPU menggunakan data benchmark. Tampilkan "Upgrade ini akan meningkatkan FPS dari X menjadi Y" bukan teks statis.
+- [ ] **Tambahkan data CPU benchmark** — skor PassMark/Cinebench untuk CPU di `benchmarks.ts`, agar bottleneck analysis dan prediksi performa lebih akurat.
+- [ ] **LLM prompt improvement** — prompt narrative saat ini bisa dibuat lebih spesifik. Tambahkan data benchmark FPS ke prompt agar LLM bisa menyebutkan angka performa dalam analisisnya.
+- [ ] **Streaming LLM response** — alih-alih nunggu LLM selesai, stream response-nya ke user (SSE / ReadableStream) untuk UX yang lebih responsif.
+- [ ] **Multi-factor component scoring** — tidak cari termahal yang muat budget, tapi skor komponen berdasarkan (performa benchmark / harga). Bobot: compatibility 30%, performance 40%, value 20%, reliability 10%.
+- [ ] **RAM performance impact** — pengaruh frekuensi RAM terhadap performa gaming. Tambahkan data ke benchmark untuk show "DDR5-6000 vs DDR4-3200 impact".
