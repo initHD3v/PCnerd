@@ -1,0 +1,13 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+# Prisma client is generated into node_modules/.prisma/client by default
+# This path is unused — kept for reference removal
+# /src/generated/prisma
+
+# Build output
+.next/
+
+# Environment template
+.env.example

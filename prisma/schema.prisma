@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum ComponentType {
+  CPU
+  GPU
+  MOTHERBOARD
+  RAM
+  STORAGE
+  PSU
+  CASE
+  COOLER
+  MONITOR
+  KEYBOARD
+  MOUSE
+  HEADSET
+  SPEAKER
+}
+
+model HardwareComponent {
+  id          String        @id @default(cuid())
+  name        String
+  brand       String
+  model       String?
+  type        ComponentType
+  price       Float
+  imageUrl    String?
+  shopUrl     String?
+  marketplace String? // e.g., "Tokopedia", "Shopee"
+  
+  // Specifications (Generic JSON to store varied hardware specs)
+  specs       Json
+  
+  // Compatibility fields
+  socket      String?   // For CPU and Motherboard
+  formFactor  String?   // For Motherboard and Case
+  ramType     String?   // For Motherboard and RAM (e.g., DDR4, DDR5)
+  wattage     Int?      // For PSU
+  tdp         Int?      // For CPU and Cooler
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  builds      BuildComponent[]
+}
+
+model Build {
+  id          String        @id @default(cuid())
+  totalBudget Float
+  totalPrice  Float
+  purpose     String        // e.g., "Gaming", "Editing"
+  resolution  String?       // e.g., "1080p", "1440p"
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  components  BuildComponent[]
+}
+
+model BuildComponent {
+  id          String            @id @default(cuid())
+  buildId     String
+  componentId String
+  
+  build       Build             @relation(fields: [buildId], references: [id])
+  component   HardwareComponent @relation(fields: [componentId], references: [id])
+
+  @@index([buildId])
+  @@index([componentId])
+}
+
+model Admin {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  password    String
+  role        String    @default("admin") // "superadmin" | "admin"
+  resetToken  String?
+  resetExpiry DateTime?
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model SyncJob {
+  id        String   @id @default(cuid())
+  status    String   @default("idle") // idle | running | completed | failed
+  progress  Int      @default(0)      // 0-100
+  total     Int      @default(0)
+  processed Int      @default(0)
+  message   String?
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
