@@ -20,15 +20,15 @@
 
 ## Tech Stack
 
-| Layer | Teknologi |
-|---|---|
-| **Framework** | Next.js 16 (Turbopack) + React 19 + TypeScript 6 (strict) |
-| **Styling** | Tailwind CSS v4 + Framer Motion + Lucide React |
-| **Database** | SQLite via Prisma 7 + libSQL |
-| **Auth** | JWT (httpOnly cookie) + bcryptjs, role-based (superadmin/admin) |
-| **AI / LLM** | OpenAI API (`gpt-4o-mini`) atau Anthropic API (`claude-3-haiku`) |
-| **Scraper** | Fetch-based GraphQL ke Tokopedia API |
-| **CI/CD** | GitHub Actions (typecheck → lint → format → test → build) |
+| Layer         | Teknologi                                                        |
+| ------------- | ---------------------------------------------------------------- |
+| **Framework** | Next.js 16 (Turbopack) + React 19 + TypeScript 6 (strict)        |
+| **Styling**   | Tailwind CSS v4 + Framer Motion + Lucide React                   |
+| **Database**  | SQLite via Prisma 7 + libSQL                                     |
+| **Auth**      | JWT (httpOnly cookie) + bcryptjs, role-based (superadmin/admin)  |
+| **AI / LLM**  | OpenAI API (`gpt-4o-mini`) atau Anthropic API (`claude-3-haiku`) |
+| **Scraper**   | Fetch-based GraphQL ke Tokopedia API                             |
+| **CI/CD**     | GitHub Actions (typecheck → lint → format → test → build)        |
 
 ## Panduan Memulai
 
@@ -54,12 +54,14 @@ cp .env.example .env
 ```
 
 Konfigurasi minimum:
+
 ```
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="random-secret-min-32-karakter"
 ```
 
 Opsional (untuk fitur LLM):
+
 ```
 OPENAI_API_KEY="sk-..."
 # atau
@@ -89,12 +91,12 @@ Akses di `http://localhost:3000`.
 
 Rule-based decision tree berdasarkan budget dan purpose:
 
-| Budget Tier | GPU | CPU | MB | RAM | Storage | PSU | Case |
-|---|---|---|---|---|---|---|---|
-| < Rp 8jt | 20% | 35% | 12% | 10% | 8% | 8% | 7% |
-| Rp 8-18jt | 40% | 25% | 10% | 8% | 7% | 6% | 4% |
-| Rp 18-35jt | 48% | 22% | 9% | 7% | 6% | 5% | 3% |
-| >= Rp 35jt | 55% | 18% | 8% | 7% | 6% | 3% | 3% |
+| Budget Tier | GPU | CPU | MB  | RAM | Storage | PSU | Case |
+| ----------- | --- | --- | --- | --- | ------- | --- | ---- |
+| < Rp 8jt    | 20% | 35% | 12% | 10% | 8%      | 8%  | 7%   |
+| Rp 8-18jt   | 40% | 25% | 10% | 8%  | 7%      | 6%  | 4%   |
+| Rp 18-35jt  | 48% | 22% | 9%  | 7%  | 6%      | 5%  | 3%   |
+| >= Rp 35jt  | 55% | 18% | 8%  | 7%  | 6%      | 3%  | 3%   |
 
 Penyesuaian purpose (Editing/Rendering → +10% CPU, -15% GPU), termasuk peripheral 15%.
 
@@ -128,6 +130,7 @@ Dua mode:
 ### 5. Upgrade Finder
 
 Cari komponen dengan harga 1-1.5x dari part terpasang:
+
 - GPU, CPU, RAM, Storage
 
 ## Struktur Proyek
@@ -162,35 +165,35 @@ src/
 
 ## Scripts
 
-| Command | Deskripsi |
-|---|---|
-| `npm run dev` | Dev server (Turbopack) |
-| `npm run build` | Build production |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript check |
-| `npm run test` | Vitest |
-| `npm run format` | Prettier |
-| `npm run seed` | Seed database (424 komponen) |
+| Command             | Deskripsi                    |
+| ------------------- | ---------------------------- |
+| `npm run dev`       | Dev server (Turbopack)       |
+| `npm run build`     | Build production             |
+| `npm run lint`      | ESLint                       |
+| `npm run typecheck` | TypeScript check             |
+| `npm run test`      | Vitest                       |
+| `npm run format`    | Prettier                     |
+| `npm run seed`      | Seed database (424 komponen) |
 
 ## API Endpoints
 
-| Method | Endpoint | Auth | Deskripsi |
-|---|---|---|---|
-| POST | `/api/recommendation` | - | Generate build recommendation |
-| POST | `/api/ai/narrative` | - | Generate LLM narrative untuk build |
-| GET | `/api/admin/components` | JWT | List semua komponen |
-| POST | `/api/admin/components` | JWT | Tambah komponen |
-| PATCH | `/api/admin/components/[id]` | JWT | Edit komponen |
-| DELETE | `/api/admin/components/[id]` | JWT | Hapus komponen |
-| POST | `/api/admin/sync` | JWT | Trigger sync harga Tokopedia |
-| POST | `/api/admin/auth/login` | - | Login admin |
-| POST | `/api/admin/auth/logout` | - | Logout |
-| GET | `/api/admin/auth/me` | - | Cek session |
-| POST | `/api/admin/auth/change-password` | JWT | Ganti password |
-| POST | `/api/admin/auth/forgot-password` | - | Lupa password |
-| POST | `/api/admin/auth/reset-password` | - | Reset password |
-| GET/POST | `/api/admin/admins` | JWT | List/tambah admin |
-| PATCH/DELETE | `/api/admin/admins/[id]` | JWT | Edit/hapus admin |
+| Method       | Endpoint                          | Auth | Deskripsi                          |
+| ------------ | --------------------------------- | ---- | ---------------------------------- |
+| POST         | `/api/recommendation`             | -    | Generate build recommendation      |
+| POST         | `/api/ai/narrative`               | -    | Generate LLM narrative untuk build |
+| GET          | `/api/admin/components`           | JWT  | List semua komponen                |
+| POST         | `/api/admin/components`           | JWT  | Tambah komponen                    |
+| PATCH        | `/api/admin/components/[id]`      | JWT  | Edit komponen                      |
+| DELETE       | `/api/admin/components/[id]`      | JWT  | Hapus komponen                     |
+| POST         | `/api/admin/sync`                 | JWT  | Trigger sync harga Tokopedia       |
+| POST         | `/api/admin/auth/login`           | -    | Login admin                        |
+| POST         | `/api/admin/auth/logout`          | -    | Logout                             |
+| GET          | `/api/admin/auth/me`              | -    | Cek session                        |
+| POST         | `/api/admin/auth/change-password` | JWT  | Ganti password                     |
+| POST         | `/api/admin/auth/forgot-password` | -    | Lupa password                      |
+| POST         | `/api/admin/auth/reset-password`  | -    | Reset password                     |
+| GET/POST     | `/api/admin/admins`               | JWT  | List/tambah admin                  |
+| PATCH/DELETE | `/api/admin/admins/[id]`          | JWT  | Edit/hapus admin                   |
 
 ## Catatan Penting
 

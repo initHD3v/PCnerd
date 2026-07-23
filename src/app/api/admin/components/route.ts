@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 const VALID_TYPES = [
-  'CPU', 'GPU', 'MOTHERBOARD', 'RAM', 'STORAGE', 'PSU', 'CASE', 'COOLER',
-  'MONITOR', 'KEYBOARD', 'MOUSE', 'HEADSET', 'SPEAKER',
+  'CPU',
+  'GPU',
+  'MOTHERBOARD',
+  'RAM',
+  'STORAGE',
+  'PSU',
+  'CASE',
+  'COOLER',
+  'MONITOR',
+  'KEYBOARD',
+  'MOUSE',
+  'HEADSET',
+  'SPEAKER',
 ];
 
 export async function GET() {
@@ -36,7 +47,7 @@ export async function POST(req: NextRequest) {
         model: body.model || null,
         type: body.type,
         price: body.price || 0,
-        specs: typeof body.specs === 'string' ? JSON.parse(body.specs) : (body.specs || {}),
+        specs: typeof body.specs === 'string' ? JSON.parse(body.specs) : body.specs || {},
         socket: body.socket || null,
         formFactor: body.formFactor || null,
         ramType: body.ramType || null,

@@ -1,11 +1,21 @@
 import { prisma } from './prisma';
 import {
   RecommendationRequest,
+  BudgetSplit,
   getExpertDistribution,
   generateNarrativeWithLLM,
   predictPerformance,
   generateLowBudgetAdvice,
+  getUpgradeImpact,
 } from './recommendation-engine';
+import {
+  findCpuBenchmark,
+  findGpuBenchmark,
+  findRamImpact,
+  analyzeBottleneck,
+  findBalancedUpgrade,
+  scoreComponent,
+} from '@/data/benchmarks';
 import { ComponentType, HardwareComponent } from '@prisma/client';
 
 export interface UpgradeOption {
@@ -15,52 +25,296 @@ export interface UpgradeOption {
   priceDiff: number;
   newTotalPrice: number;
   benefit: string;
+  fpsUplift?: { currentFps: number; newFps: number; upliftPercent: number };
 }
 
-export async function generateBuild(request: RecommendationRequest) {
-  const distribution = getExpertDistribution(request.budget, request.purpose, request.includePeripheral);
-  const build: Record<string, HardwareComponent | null> = {};
+export interface BuildResult {
+  build: Record<string, HardwareComponent | null>;
+  originalBuild: Record<string, HardwareComponent | null>;
+  totalPrice: number;
+  isOverBudget: boolean;
+  targetBudget: number;
+  resolution: string;
+  lowBudgetAdvice: any;
+  distribution: BudgetSplit;
+  tier: string;
+  analysis: string;
+  technical: {
+    totalTdp: number;
+    psuWattage: number;
+    isPsuSafe: boolean;
+    bottleneckStatus: string;
+  };
+  performance: any[];
+  narrative: any;
+  upgrades: UpgradeOption[];
+}
 
-  // Strict Search: First pass with tight constraints (lte: targetPrice)
-  const findPart = async (type: ComponentType, targetPrice: number, extraWhere = {}) => {
-    // 1. Try to find within tight budget
-    let part = await prisma.hardwareComponent.findFirst({
-      where: { type, price: { lte: targetPrice }, ...extraWhere },
+const PERIPHERAL_TYPES = [
+  { type: ComponentType.MONITOR, share: 0.6 },
+  { type: ComponentType.KEYBOARD, share: 0.2 },
+  { type: ComponentType.MOUSE, share: 0.2 },
+];
+
+type ScoringMode = 'performance' | 'balanced' | 'value';
+
+async function findBestScored(
+  type: ComponentType,
+  targetPrice: number,
+  extraWhere = {},
+  context: { cpuSocket?: string; ramType?: string; mode?: ScoringMode } = {},
+) {
+  const mode = context.mode || 'balanced';
+  const minPrice =
+    type === ComponentType.CASE ||
+    type === ComponentType.COOLER ||
+    type === ComponentType.MONITOR ||
+    type === ComponentType.KEYBOARD ||
+    type === ComponentType.MOUSE
+      ? 0
+      : mode === 'performance'
+        ? targetPrice * 0.6
+        : targetPrice * 0.3;
+  const maxPrice = mode === 'performance' ? targetPrice * 1.15 : targetPrice * 1.3;
+
+  let candidates = await prisma.hardwareComponent.findMany({
+    where: { type, price: { gte: minPrice, lte: maxPrice }, ...extraWhere },
+    orderBy: { price: 'asc' },
+    take: 30,
+  });
+
+  if (candidates.length === 0) {
+    candidates = await prisma.hardwareComponent.findMany({
+      where: { type, ...extraWhere },
+      orderBy: { price: 'asc' },
+      take: 5,
+    });
+  }
+
+  const scored = candidates.map((c) => {
+    let compatibility = 1.0;
+    if (type === 'CPU' && context.cpuSocket) {
+      compatibility = c.socket === context.cpuSocket ? 1.0 : 0.7;
+    }
+    if (type === 'MOTHERBOARD' && context.cpuSocket) {
+      compatibility = c.socket === context.cpuSocket ? 1.0 : 0.3;
+    }
+    if (type === 'RAM' && context.ramType) {
+      compatibility = c.ramType === context.ramType ? 1.0 : 0.2;
+    }
+
+    const cpuBench = type === 'CPU' ? findCpuBenchmark(c.name) : null;
+    const gpuBench = type === 'GPU' ? findGpuBenchmark(c.name) : null;
+    const ramImpact = type === 'RAM' ? findRamImpact(c.name) : null;
+
+    let performanceScore = 0.4;
+    let benchmarkPerPrice: number | undefined;
+
+    if (cpuBench) {
+      performanceScore = cpuBench.passmarkSingle / 5000;
+      benchmarkPerPrice = cpuBench.passmarkSingle / Math.max(c.price, 1);
+    } else if (gpuBench) {
+      const avgFps = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
+      performanceScore = avgFps / 200;
+      benchmarkPerPrice = avgFps / Math.max(c.price, 1);
+    } else if (ramImpact) {
+      performanceScore = ramImpact.gamingFpsMultiplier;
+      benchmarkPerPrice = (ramImpact.gamingFpsMultiplier / Math.max(c.price, 1)) * 100000;
+    } else if (type === 'MOTHERBOARD') {
+      const hasSocket = c.socket ? 0.8 : 0.3;
+      const hasRamType = c.ramType ? 0.8 : 0.3;
+      performanceScore = (hasSocket + hasRamType) / 2;
+    } else if (type === 'STORAGE') {
+      performanceScore = /SSD|NVMe/i.test(c.name) ? 0.9 : 0.4;
+    } else if (type === 'PSU') {
+      performanceScore = Math.min(1, (c.wattage || 0) / 1000);
+    } else if (type === 'COOLER') {
+      performanceScore = c.price > 200000 ? 0.9 : 0.3;
+    }
+
+    const base = scoreComponent(c, targetPrice, compatibility, performanceScore, benchmarkPerPrice);
+    return { component: c, ...base };
+  });
+
+  if (mode === 'performance') {
+    scored.sort((a, b) => {
+      if (Math.abs(b.performanceScore - a.performanceScore) > 0.05) return b.performanceScore - a.performanceScore;
+      return b.component.price - a.component.price;
+    });
+  } else if (mode === 'value') {
+    scored.sort((a, b) => b.valueScore - a.valueScore || b.totalScore - a.totalScore);
+  } else {
+    scored.sort((a, b) => b.totalScore - a.totalScore);
+  }
+
+  return scored[0]?.component || candidates[0] || null;
+}
+
+async function ensureBalance(
+  build: Record<string, HardwareComponent | null>,
+  resolution: string = '1080p',
+): Promise<void> {
+  if (!build.CPU || !build.GPU) return;
+
+  const cpuBench = findCpuBenchmark(build.CPU.name);
+  const gpuBench = findGpuBenchmark(build.GPU.name);
+  if (!cpuBench || !gpuBench) return;
+
+  const totalCpuGpu = build.CPU.price + build.GPU.price;
+  const flexBudget = totalCpuGpu * 1.15;
+
+  const upgrade = findBalancedUpgrade(cpuBench, gpuBench, resolution);
+  if (!upgrade) return;
+
+  if (upgrade.type === 'CPU') {
+    const betterCpu = await prisma.hardwareComponent.findFirst({
+      where: { type: ComponentType.CPU, name: { contains: upgrade.model }, price: { lte: flexBudget } },
+      orderBy: { price: 'asc' },
+    });
+    if (!betterCpu || betterCpu.id === build.CPU.id) return;
+
+    const cpuPriceDiff = betterCpu.price - build.CPU.price;
+    const gpuRoom = build.GPU.price - cpuPriceDiff;
+
+    if (gpuRoom > 0 || cpuPriceDiff <= 0) {
+      build.CPU = betterCpu;
+      return;
+    }
+
+    const cheaperGpu = await prisma.hardwareComponent.findFirst({
+      where: { type: ComponentType.GPU, price: { lte: gpuRoom + 500000 } },
+      orderBy: { price: 'desc' },
+    });
+    if (cheaperGpu && cheaperGpu.price < build.GPU.price) {
+      build.CPU = betterCpu;
+      build.GPU = cheaperGpu;
+    }
+  } else {
+    const betterGpu = await prisma.hardwareComponent.findFirst({
+      where: { type: ComponentType.GPU, name: { contains: upgrade.model }, price: { lte: flexBudget } },
+      orderBy: { price: 'asc' },
+    });
+    if (!betterGpu || betterGpu.id === build.GPU.id) return;
+
+    const gpuPriceDiff = betterGpu.price - build.GPU.price;
+    const cpuRoom = build.CPU.price - gpuPriceDiff;
+
+    if (cpuRoom > 0 || gpuPriceDiff <= 0) {
+      build.GPU = betterGpu;
+      return;
+    }
+
+    const cheaperCpu = await prisma.hardwareComponent.findFirst({
+      where: { type: ComponentType.CPU, price: { lte: cpuRoom + 500000 } },
+      orderBy: { price: 'desc' },
+    });
+    if (cheaperCpu && cheaperCpu.price < build.CPU.price) {
+      build.GPU = betterGpu;
+      build.CPU = cheaperCpu;
+    }
+  }
+}
+
+async function fillRemainingBudget(
+  build: Record<string, HardwareComponent | null>,
+  request: RecommendationRequest,
+): Promise<Record<string, HardwareComponent | null>> {
+  const currentTotal = Object.values(build).reduce((s, p) => s + (p?.price || 0), 0);
+  let remaining = request.budget - currentTotal;
+
+  if (remaining <= 500000) return build;
+
+  const upgradeChain = [
+    ComponentType.GPU,
+    ComponentType.CPU,
+    ComponentType.RAM,
+    ComponentType.STORAGE,
+    ComponentType.MOTHERBOARD,
+    ComponentType.PSU,
+    ComponentType.CASE,
+    ComponentType.COOLER,
+  ];
+
+  for (const type of upgradeChain) {
+    if (remaining <= 500000) break;
+    const current = build[type];
+    if (!current) continue;
+
+    const better = await prisma.hardwareComponent.findFirst({
+      where: {
+        type,
+        price: { gt: current.price, lte: current.price + remaining },
+        NOT: { id: current.id },
+      },
       orderBy: { price: 'desc' },
     });
 
-    // 2. If not found, find the absolute cheapest to ensure build is possible
-    if (!part) {
-      part = await prisma.hardwareComponent.findFirst({
-        where: { type, ...extraWhere },
-        orderBy: { price: 'asc' },
-      });
+    if (better && better.price > current.price + 100000) {
+      const prevPrice = current.price;
+      build[type] = better;
+      remaining -= better.price - prevPrice;
     }
+  }
 
-    return part;
-  };
+  return build;
+}
 
-  // Build Construction
-  build.CPU = await findPart(ComponentType.CPU, request.budget * distribution.CPU);
+async function generateSingleBuild(
+  request: RecommendationRequest,
+  mode: ScoringMode = 'balanced',
+): Promise<BuildResult> {
+  const distribution = getExpertDistribution(request.budget, request.purpose, request.includePeripheral);
+  const build: Record<string, HardwareComponent | null> = {};
+
+  const ctx = { mode };
+
+  build.CPU = await findBestScored(ComponentType.CPU, request.budget * distribution.CPU, {}, ctx);
   if (!build.CPU) throw new Error('Tidak ada CPU yang tersedia di database.');
 
-  build.MOTHERBOARD = await findPart(ComponentType.MOTHERBOARD, request.budget * distribution.MOTHERBOARD, {
-    socket: build.CPU.socket,
-  });
-  if (distribution.GPU > 0) build.GPU = await findPart(ComponentType.GPU, request.budget * distribution.GPU);
-  build.RAM = await findPart(
+  build.MOTHERBOARD = await findBestScored(
+    ComponentType.MOTHERBOARD,
+    request.budget * distribution.MOTHERBOARD,
+    { socket: build.CPU.socket },
+    { ...ctx, cpuSocket: build.CPU.socket || '' },
+  );
+  if (distribution.GPU > 0) {
+    build.GPU = await findBestScored(ComponentType.GPU, request.budget * distribution.GPU, {}, ctx);
+  }
+
+  await ensureBalance(build, request.resolution || '1080p');
+
+  build.RAM = await findBestScored(
     ComponentType.RAM,
     request.budget * distribution.RAM,
     build.MOTHERBOARD ? { ramType: build.MOTHERBOARD.ramType } : {},
+    { ...ctx, ramType: build.MOTHERBOARD?.ramType || '' },
   );
-  build.PSU = await findPart(ComponentType.PSU, request.budget * distribution.PSU);
-  build.STORAGE = await findPart(ComponentType.STORAGE, request.budget * distribution.STORAGE);
-  build.CASE = await findPart(ComponentType.CASE, request.budget * distribution.CASE);
-  build.COOLER = await findPart(ComponentType.COOLER, request.budget * 0.05);
+  build.PSU = await findBestScored(ComponentType.PSU, request.budget * distribution.PSU, {}, ctx);
+  build.STORAGE = await findBestScored(ComponentType.STORAGE, request.budget * distribution.STORAGE, {}, ctx);
+  build.CASE = await findBestScored(ComponentType.CASE, request.budget * distribution.CASE, {}, ctx);
+
+  const cpuTdp = build.CPU?.tdp || 0;
+  const needsCooler = cpuTdp > 65 || /i7|i9|Ryzen 7|Ryzen 9|X3D|K$|KF$|KS/i.test(build.CPU?.name || '');
+  const coolerTarget = request.budget * (distribution.COOLER || 0.04);
+
+  if (coolerTarget > 0) {
+    const coolerMode: ScoringMode = needsCooler ? 'performance' : 'value';
+    build.COOLER = await findBestScored(ComponentType.COOLER, coolerTarget, {}, { ...ctx, mode: coolerMode });
+  }
+  if (!build.COOLER && coolerTarget > 0) {
+    build.COOLER = await findBestScored(ComponentType.COOLER, coolerTarget, {}, ctx);
+  }
+
+  if (request.includePeripheral && distribution.PERIPHERALS) {
+    const perBudget = request.budget * distribution.PERIPHERALS;
+    for (const pt of PERIPHERAL_TYPES) {
+      const found = await findBestScored(pt.type, perBudget * pt.share, {}, ctx);
+      if (found) build[pt.type] = found;
+    }
+  }
 
   let totalPrice = Object.values(build).reduce((sum, item) => sum + (item?.price || 0), 0);
 
-  // Strict Correction: If total price exceeds budget, swap components for cheaper ones iteratively
   if (totalPrice > request.budget) {
     const typesToSwap = [
       ComponentType.GPU,
@@ -84,37 +338,38 @@ export async function generateBuild(request: RecommendationRequest) {
     }
   }
 
+  if (mode === 'performance') {
+    await fillRemainingBudget(build, request);
+    totalPrice = Object.values(build).reduce((sum, item) => sum + (item?.price || 0), 0);
+  }
+
   const originalBuild = { ...build };
 
-  // --- Smart Upgrade Finder ---
   const upgrades: UpgradeOption[] = [];
   const findUpgrade = async (type: ComponentType, currentPart: HardwareComponent | null, extraWhere = {}) => {
-    if (!currentPart) return null;
-
+    if (!currentPart) return;
     const suggested = await prisma.hardwareComponent.findFirst({
-      where: {
-        type,
-        price: { gt: currentPart.price, lte: currentPart.price * 1.5 },
-        ...extraWhere,
-      },
+      where: { type, price: { gt: currentPart.price, lte: currentPart.price * 1.5 }, ...extraWhere },
       orderBy: { price: 'asc' },
     });
-
     if (suggested) {
-      let benefit = 'Peningkatan kualitas komponen.';
-      if (type === 'GPU') benefit = 'Performa gaming lebih stabil di resolusi tinggi.';
-      if (type === 'CPU') benefit = 'Proses multitasking dan rendering lebih cepat.';
-      if (type === 'RAM') benefit = 'Kapasitas/kecepatan lebih besar untuk beban kerja berat.';
-      if (type === 'PSU') benefit = 'Daya lebih besar dan efisiensi lebih baik.';
-      if (type === 'STORAGE') benefit = 'Kapasitas penyimpanan lebih luas.';
-
+      const impact = getUpgradeImpact(
+        { name: currentPart.name, type },
+        { name: suggested.name, type },
+        request.resolution || '1080p',
+        type === 'CPU' ? build.GPU?.name : undefined,
+      );
       upgrades.push({
         componentType: type,
         currentPart,
         suggestedPart: suggested,
         priceDiff: suggested.price - currentPart.price,
         newTotalPrice: totalPrice + (suggested.price - currentPart.price),
-        benefit,
+        benefit: impact.benefit,
+        fpsUplift:
+          impact.currentFps !== undefined
+            ? { currentFps: impact.currentFps!, newFps: impact.newFps!, upliftPercent: impact.upliftPercent! }
+            : undefined,
       });
     }
   };
@@ -126,38 +381,34 @@ export async function generateBuild(request: RecommendationRequest) {
 
   const isOverBudget = totalPrice > request.budget;
 
-  // --- Smart Logic Extensions ---
-
-  // 1. TDP Calculation — prefer DB field, fallback to price-based estimate
   const estimateGpuTdp = (gpu: typeof build.GPU) => {
     if (gpu?.tdp) return gpu.tdp;
     const price = gpu?.price || 0;
-    if (price > 15000000) return 350; // RTX 4080/4090 class
-    if (price > 8000000) return 250;  // RTX 4070 class
-    if (price > 4000000) return 200;  // RTX 4060 class
-    if (price > 2000000) return 150;  // GTX 1650 / entry
-    return 100;                        // Integrated-class
+    if (price > 15000000) return 350;
+    if (price > 8000000) return 250;
+    if (price > 4000000) return 200;
+    if (price > 2000000) return 150;
+    return 100;
   };
   const totalTdp = (build.CPU?.tdp || 0) + (build.GPU ? estimateGpuTdp(build.GPU) : 0);
   const psuWattage = build.PSU?.wattage || 0;
   const isPsuSafe = psuWattage >= totalTdp * 1.25;
 
-  // 2. Performance Prediction — berbasis benchmark real
-  const gpuModelName = build.GPU?.name || '';
-  const performance = predictPerformance(build.GPU?.price || 0, build.CPU.price, gpuModelName, request.resolution);
+  const performance = predictPerformance(
+    build.GPU?.price || 0,
+    build.CPU.price,
+    build.GPU?.name || '',
+    request.resolution,
+    build.CPU?.name || '',
+    build.RAM?.name || '',
+  );
 
-  // 3. Narrative Generation — LLM-powered, fallback ke template
   const narrative = await generateNarrativeWithLLM(build, request);
+  const cpuBench = findCpuBenchmark(build.CPU?.name || '');
+  const gpuBench = findGpuBenchmark(build.GPU?.name || '');
+  const bottleneck = analyzeBottleneck(cpuBench, gpuBench, request.resolution || '1080p');
 
-  // 4. Bottleneck Analysis (Heuristic)
-  let bottleneckStatus = 'Sangat Seimbang';
-  if (build.GPU && build.GPU.price > build.CPU.price * 4) {
-    bottleneckStatus = 'Potensi Bottleneck CPU (CPU terlalu lemah untuk GPU ini)';
-  } else if (build.GPU && build.CPU.price > build.GPU.price * 2) {
-    bottleneckStatus = 'Potensi Bottleneck GPU (GPU terlalu lemah untuk CPU ini)';
-  }
-
-  const lowBudgetAdvice = request.budget < 2500000 ? generateLowBudgetAdvice(request.budget) : null;
+  const pctUsed = Math.round((totalPrice / request.budget) * 100);
 
   return {
     build,
@@ -165,18 +416,35 @@ export async function generateBuild(request: RecommendationRequest) {
     totalPrice,
     isOverBudget,
     targetBudget: request.budget,
-    lowBudgetAdvice,
+    resolution: request.resolution || '1080p',
+    lowBudgetAdvice: request.budget < 2500000 ? generateLowBudgetAdvice(request.budget) : null,
     distribution,
-    tier: request.budget < 10000000 ? 'Entry' : request.budget < 25000000 ? 'Mid' : 'High-End',
-    analysis: `Build ini ${isOverBudget ? 'sedikit melebihi' : 'sesuai'} dengan budget Anda.`,
-    technical: {
-      totalTdp,
-      psuWattage,
-      isPsuSafe,
-      bottleneckStatus,
-    },
+    tier: pctUsed >= 90 ? 'Max Performance' : pctUsed >= 60 ? 'Mid-Range' : 'Entry',
+    analysis:
+      mode === 'performance'
+        ? `Build ini menggunakan ${pctUsed}% dari budget Anda (Rp ${totalPrice.toLocaleString('id-ID')} dari Rp ${request.budget.toLocaleString('id-ID')}).`
+        : `Build ini ${isOverBudget ? 'sedikit melebihi' : 'menggunakan'} budget Anda (${pctUsed}%).`,
+    technical: { totalTdp, psuWattage, isPsuSafe, bottleneckStatus: bottleneck.status },
     performance,
     narrative,
     upgrades,
   };
+}
+
+export async function generateBuild(request: RecommendationRequest) {
+  return generateSingleBuild(request, 'balanced');
+}
+
+export async function generateTieredBuilds(request: RecommendationRequest) {
+  const maxBudget = request.budget;
+  const cheapestBudget = Math.max(4000000, Math.round(maxBudget * 0.35));
+  const midBudget = Math.max(7000000, Math.round(maxBudget * 0.65));
+
+  const [cheapest, mid, max] = await Promise.all([
+    generateSingleBuild({ ...request, budget: request.budget >= 4000000 ? cheapestBudget : maxBudget }, 'value'),
+    generateSingleBuild({ ...request, budget: request.budget >= 7000000 ? midBudget : maxBudget }, 'balanced'),
+    generateSingleBuild(request, 'performance'),
+  ]);
+
+  return { tiers: { cheapest, mid, max }, targetBudget: maxBudget };
 }

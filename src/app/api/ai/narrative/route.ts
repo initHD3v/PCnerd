@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/lib/llm';
+import { callLLM, callLLMStream } from '@/lib/llm';
+import {
+  findGpuBenchmark,
+  findCpuBenchmark,
+  findRamImpact,
+  analyzeBottleneck,
+  calculateFpsUplift,
+} from '@/data/benchmarks';
 
-const SYSTEM_PROMPT = `Kamu adalah asisten AI untuk aplikasi PC Builder bernama PCnerd. 
+const SYSTEM_PROMPT = `Kamu adalah asisten AI untuk aplikasi PC Builder bernama PCnerd.
 Tugasmu adalah menganalisis racikan komponen PC dan memberikan narasi yang informatif, jujur, dan kontekstual.
 
 Panduan:
 - Analisis keseimbangan build: apakah GPU dan CPU seimbang?
-- Apakah PSU cukup untuk total TDP? 
+- Gunakan data benchmark FPS dan PassMark yang tersedia untuk mendukung analisismu.
+- Sebutkan angka FPS konkret dalam analisis GPU — jangan hanya "bagus" atau "kurang".
+- Apakah PSU cukup untuk total TDP?
 - Apakah RAM cocok dengan motherboard?
 - Berikan saran realistis jika ada kelemahan.
 - Gunakan bahasa Indonesia yang natural.
@@ -16,7 +25,8 @@ Panduan:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { build, budget, purpose, resolution } = body;
+    const { build, budget, purpose, resolution, stream } = body;
+    const res = resolution || '1080p';
 
     const componentsText = Object.entries(build || {})
       .map(([type, part]: [string, any]) => {
@@ -25,12 +35,62 @@ export async function POST(req: NextRequest) {
       })
       .join('\n');
 
-    const userPrompt = `Racikan PC dengan budget Rp ${budget?.toLocaleString('id-ID')} untuk ${purpose || 'Gaming'} di resolusi ${resolution || '1080p'}.
+    const gpuBench = build?.GPU?.name ? findGpuBenchmark(build.GPU.name) : null;
+    const cpuBench = build?.CPU?.name ? findCpuBenchmark(build.CPU.name) : null;
+    const ramImpact = build?.RAM?.name ? findRamImpact(build.RAM.name) : null;
+
+    let benchmarkText = '';
+    if (gpuBench) {
+      const fps = res === '4K' ? gpuBench.fps4k : res === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
+      benchmarkText += `\nGPU ${build.GPU.name}: ${fps} FPS di ${res} (AAA), ${gpuBench.fpsEsports} FPS (E-Sports).`;
+    }
+    if (cpuBench) {
+      benchmarkText += `\nCPU ${build.CPU.name}: PassMark Single=${cpuBench.passmarkSingle}, Multi=${cpuBench.passmarkMulti}.`;
+    }
+    if (ramImpact) {
+      const ramDiff = Math.round((ramImpact.gamingFpsMultiplier - 1) * 100);
+      benchmarkText += `\nRAM ${build.RAM.name}: ${ramImpact.gamingFpsMultiplier > 1 ? '+' : ''}${ramDiff}% gaming vs DDR4-3200.`;
+    }
+
+    if (cpuBench && gpuBench) {
+      const bottleneck = analyzeBottleneck(cpuBench, gpuBench, res);
+      benchmarkText += `\nBottleneck: ${bottleneck.status} (${bottleneck.severity}).`;
+    }
+
+    const userPrompt = `Racikan PC dengan budget Rp ${budget?.toLocaleString('id-ID')} untuk ${purpose || 'Gaming'} di resolusi ${res}.
 
 Komponen:
 ${componentsText}
+${benchmarkText}
 
-Berikan analisis yang jujur dan konstruktif.`;
+Berikan analisis yang jujur dan konstruktif. Sebutkan angka FPS dan benchmark dalam analisismu.`;
+
+    if (stream) {
+      const gen = callLLMStream(SYSTEM_PROMPT, userPrompt);
+      const encoder = new TextEncoder();
+
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of gen) {
+              controller.enqueue(encoder.encode(chunk));
+            }
+          } catch {
+            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Stream error' })));
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    }
 
     const result = await callLLM(SYSTEM_PROMPT, userPrompt);
 

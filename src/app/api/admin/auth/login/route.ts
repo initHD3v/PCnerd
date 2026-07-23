@@ -21,18 +21,12 @@ export async function POST(request: NextRequest) {
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const { allowed, remaining } = checkRateLimit(ip);
     if (!allowed) {
-      return NextResponse.json(
-        { error: 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' },
-        { status: 429 },
-      );
+      return NextResponse.json({ error: 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' }, { status: 429 });
     }
 
     const admin = await prisma.admin.findUnique({ where: { username } });
     if (!admin || !(await verifyPassword(password, admin.password))) {
-      return NextResponse.json(
-        { error: 'Username atau password salah.', remaining },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: 'Username atau password salah.', remaining }, { status: 401 });
     }
 
     // Update last login

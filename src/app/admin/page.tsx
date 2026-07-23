@@ -352,7 +352,9 @@ export default function AdminDashboard() {
   // Loading state
   if (isAuthLoading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}>
+      <div
+        className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      >
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
@@ -361,9 +363,13 @@ export default function AdminDashboard() {
   // Login form
   if (!adminUser) {
     return (
-      <div className={`min-h-screen font-sans antialiased flex items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}>
+      <div
+        className={`min-h-screen font-sans antialiased flex items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      >
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm mx-4">
-          <div className={`border rounded-2xl p-8 shadow-2xl ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}>
+          <div
+            className={`border rounded-2xl p-8 shadow-2xl ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}
+          >
             <div className="flex flex-col items-center mb-8">
               <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4">
                 <ShieldCheck className="w-7 h-7 text-black" />
@@ -431,7 +437,10 @@ export default function AdminDashboard() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  onClick={() => { setShowForgot(false); setForgotToken(''); }}
+                  onClick={() => {
+                    setShowForgot(false);
+                    setForgotToken('');
+                  }}
                   className="absolute inset-0 bg-black/60 backdrop-blur-md"
                 />
                 <motion.div
@@ -440,7 +449,9 @@ export default function AdminDashboard() {
                   exit={{ scale: 0.95, opacity: 0 }}
                   className={`relative w-full max-w-md border rounded-2xl p-6 shadow-2xl ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}
                 >
-                  <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Lupa Password</h3>
+                  <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Lupa Password
+                  </h3>
                   {!forgotToken ? (
                     <form onSubmit={handleForgotPassword} className="space-y-4">
                       <div>
@@ -464,12 +475,18 @@ export default function AdminDashboard() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-sm text-gray-500">Salin token berikut untuk mereset password:</p>
-                      <div className={`p-3 rounded-lg border text-sm font-mono break-all ${isDarkMode ? 'bg-white/5 border-white/10 text-green-400' : 'bg-gray-50 border-gray-200 text-green-700'}`}>
+                      <div
+                        className={`p-3 rounded-lg border text-sm font-mono break-all ${isDarkMode ? 'bg-white/5 border-white/10 text-green-400' : 'bg-gray-50 border-gray-200 text-green-700'}`}
+                      >
                         {forgotToken}
                       </div>
                       <p className="text-xs text-gray-500">Token berlaku selama 15 menit.</p>
                       <button
-                        onClick={() => { setShowForgot(false); setForgotToken(''); setShowReset(true); }}
+                        onClick={() => {
+                          setShowForgot(false);
+                          setForgotToken('');
+                          setShowReset(true);
+                        }}
                         className="w-full py-3 bg-primary text-black font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all"
                       >
                         Lanjut ke Reset Password
@@ -477,7 +494,10 @@ export default function AdminDashboard() {
                     </div>
                   )}
                   <button
-                    onClick={() => { setShowForgot(false); setForgotToken(''); }}
+                    onClick={() => {
+                      setShowForgot(false);
+                      setForgotToken('');
+                    }}
                     className="mt-4 text-xs text-gray-500 hover:text-primary transition-colors"
                   >
                     Kembali ke Login
@@ -504,7 +524,9 @@ export default function AdminDashboard() {
                   exit={{ scale: 0.95, opacity: 0 }}
                   className={`relative w-full max-w-md border rounded-2xl p-6 shadow-2xl ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}
                 >
-                  <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Reset Password</h3>
+                  <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Reset Password
+                  </h3>
                   <form onSubmit={handleResetPassword} className="space-y-4">
                     <div>
                       <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Token Reset</label>
@@ -516,7 +538,9 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Password Baru</label>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">
+                        Password Baru
+                      </label>
                       <input
                         type="password"
                         value={resetNewPassword}
@@ -549,9 +573,13 @@ export default function AdminDashboard() {
 
   // Main dashboard
   return (
-    <div className={`min-h-screen font-sans antialiased transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}>
+    <div
+      className={`min-h-screen font-sans antialiased transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+    >
       {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-full w-64 border-r p-6 hidden lg:block transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+      <aside
+        className={`fixed left-0 top-0 h-full w-64 border-r p-6 hidden lg:block transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}
+      >
         <div className="flex items-center gap-3 mb-10 px-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <ShieldCheck className="w-5 h-5 text-black" />
@@ -603,10 +631,14 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Mobile top bar */}
-      <div className={`lg:hidden flex items-center justify-between p-4 border-b ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}>
+      <div
+        className={`lg:hidden flex items-center justify-between p-4 border-b ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}
+      >
         <span className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>PCnerd Admin</span>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">{adminUser.username} ({adminUser.role})</span>
+          <span className="text-xs text-gray-500">
+            {adminUser.username} ({adminUser.role})
+          </span>
           <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors">
             <LogOut className="w-4 h-4" />
           </button>
@@ -619,7 +651,9 @@ export default function AdminDashboard() {
           <>
             <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
               <div>
-                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Hardware Inventory</h1>
+                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Hardware Inventory
+                </h1>
                 <p className="text-sm text-gray-500">Manage your hardware components and real-time pricing.</p>
               </div>
 
@@ -664,7 +698,9 @@ export default function AdminDashboard() {
                 label="Last Sync"
                 value={
                   components.length > 0
-                    ? new Date(Math.max(...components.map((c) => new Date(c.updatedAt).getTime()))).toLocaleDateString('id-ID')
+                    ? new Date(Math.max(...components.map((c) => new Date(c.updatedAt).getTime()))).toLocaleDateString(
+                        'id-ID',
+                      )
                     : '—'
                 }
                 isDarkMode={isDarkMode}
@@ -703,51 +739,84 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className={`border rounded-xl overflow-hidden shadow-2xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+            <div
+              className={`border rounded-xl overflow-hidden shadow-2xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className={`border-b transition-colors ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Item Details</th>
+                    <tr
+                      className={`border-b transition-colors ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}
+                    >
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Item Details
+                      </th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Specifications</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Price (IDR)</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Specifications
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Price (IDR)
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
                     {filteredComponents.map((comp) => {
                       const Icon = TYPE_ICONS[comp.type] || Box;
                       return (
-                        <tr key={comp.id} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-gray-50/50'}`}>
+                        <tr
+                          key={comp.id}
+                          className={`transition-colors group ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-gray-50/50'}`}
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-4">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}>
+                              <div
+                                className={`w-10 h-10 rounded-lg flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}
+                              >
                                 <Icon className="w-5 h-5" />
                               </div>
                               <div>
-                                <div className={`text-sm font-bold leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{comp.name}</div>
+                                <div
+                                  className={`text-sm font-bold leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                >
+                                  {comp.name}
+                                </div>
                                 <div className="text-xs text-gray-500">{comp.brand}</div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-[10px] font-black tracking-widest bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded uppercase border border-emerald-500/20">{comp.type}</span>
+                            <span className="text-[10px] font-black tracking-widest bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded uppercase border border-emerald-500/20">
+                              {comp.type}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                               {comp.type === 'RAM'
-                                ? [extractRamSize(comp.name), comp.ramType, extractRamSpeed(comp.name)].filter(Boolean).join(' · ') || comp.name
+                                ? [extractRamSize(comp.name), comp.ramType, extractRamSpeed(comp.name)]
+                                    .filter(Boolean)
+                                    .join(' · ') || comp.name
                                 : comp.type === 'STORAGE'
-                                  ? [extractStorageCapacity(comp.name), extractStorageType(comp.name), comp.formFactor].filter(Boolean).join(' · ') || comp.name
+                                  ? [extractStorageCapacity(comp.name), extractStorageType(comp.name), comp.formFactor]
+                                      .filter(Boolean)
+                                      .join(' · ') || comp.name
                                   : comp.type === 'CPU'
-                                    ? [comp.model, comp.socket, comp.tdp ? `${comp.tdp}W` : ''].filter(Boolean).join(' · ')
+                                    ? [comp.model, comp.socket, comp.tdp ? `${comp.tdp}W` : '']
+                                        .filter(Boolean)
+                                        .join(' · ')
                                     : comp.type === 'GPU'
-                                      ? [extractGpuModel(comp.name), extractGpuVram(comp.specs)].filter(Boolean).join(' · ') || comp.name
+                                      ? [extractGpuModel(comp.name), extractGpuVram(comp.specs)]
+                                          .filter(Boolean)
+                                          .join(' · ') || comp.name
                                       : comp.type === 'MOTHERBOARD'
                                         ? [comp.socket, comp.ramType, comp.formFactor].filter(Boolean).join(' · ')
                                         : comp.type === 'PSU'
-                                          ? comp.wattage ? `${comp.wattage}W` : '-'
+                                          ? comp.wattage
+                                            ? `${comp.wattage}W`
+                                            : '-'
                                           : comp.type === 'CASE'
                                             ? comp.formFactor || '-'
                                             : comp.type === 'COOLER'
@@ -755,22 +824,51 @@ export default function AdminDashboard() {
                                               : comp.socket || comp.ramType || comp.formFactor || '-'}
                             </div>
                             <div className="text-[10px] text-gray-600 mt-1 uppercase">
-                              {comp.wattage ? `${comp.wattage}W PSU` : comp.tdp ? `${comp.tdp}W TDP` : comp.type === 'RAM' ? 'RAM' : comp.type === 'STORAGE' ? 'STORAGE' : comp.type === 'GPU' ? 'GPU' : comp.type === 'CPU' ? 'CPU' : comp.type === 'MOTHERBOARD' ? (comp.formFactor || 'MOBO') : comp.type === 'CASE' ? (comp.formFactor || 'CASE') : comp.type === 'COOLER' ? 'COOLER' : 'Base Specs'}
+                              {comp.wattage
+                                ? `${comp.wattage}W PSU`
+                                : comp.tdp
+                                  ? `${comp.tdp}W TDP`
+                                  : comp.type === 'RAM'
+                                    ? 'RAM'
+                                    : comp.type === 'STORAGE'
+                                      ? 'STORAGE'
+                                      : comp.type === 'GPU'
+                                        ? 'GPU'
+                                        : comp.type === 'CPU'
+                                          ? 'CPU'
+                                          : comp.type === 'MOTHERBOARD'
+                                            ? comp.formFactor || 'MOBO'
+                                            : comp.type === 'CASE'
+                                              ? comp.formFactor || 'CASE'
+                                              : comp.type === 'COOLER'
+                                                ? 'COOLER'
+                                                : 'Base Specs'}
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Rp {comp.price.toLocaleString('id-ID')}</div>
-                            <div className="text-[10px] text-gray-600 mt-0.5">Updated {new Date(comp.updatedAt).toLocaleDateString()}</div>
+                            <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                              Rp {comp.price.toLocaleString('id-ID')}
+                            </div>
+                            <div className="text-[10px] text-gray-600 mt-0.5">
+                              Updated {new Date(comp.updatedAt).toLocaleDateString()}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                onClick={() => { setEditingId(comp.id); setFormData(comp); setIsModalOpen(true); }}
+                                onClick={() => {
+                                  setEditingId(comp.id);
+                                  setFormData(comp);
+                                  setIsModalOpen(true);
+                                }}
                                 className={`p-2 rounded-lg transition-colors text-gray-400 hover:text-white ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-200'}`}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
-                              <button onClick={() => deleteComponent(comp.id)} className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-400 hover:text-red-500">
+                              <button
+                                onClick={() => deleteComponent(comp.id)}
+                                className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-400 hover:text-red-500"
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -795,7 +893,9 @@ export default function AdminDashboard() {
           <>
             <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
               <div>
-                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admin Management</h1>
+                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Admin Management
+                </h1>
                 <p className="text-sm text-gray-500">Manage admin accounts and roles.</p>
               </div>
               <button
@@ -809,42 +909,61 @@ export default function AdminDashboard() {
               </button>
             </header>
 
-            <div className={`border rounded-xl overflow-hidden shadow-2xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+            <div
+              className={`border rounded-xl overflow-hidden shadow-2xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className={`border-b transition-colors ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
+                    <tr
+                      className={`border-b transition-colors ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}
+                    >
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Username</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Last Login</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Created</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
                     {admins.map((adm) => (
-                      <tr key={adm.id} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-gray-50/50'}`}>
+                      <tr
+                        key={adm.id}
+                        className={`transition-colors group ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-gray-50/50'}`}
+                      >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${adm.role === 'superadmin' ? 'bg-purple-500/10 text-purple-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${adm.role === 'superadmin' ? 'bg-purple-500/10 text-purple-500' : 'bg-blue-500/10 text-blue-500'}`}
+                            >
                               {adm.username.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.username}</div>
+                              <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {adm.username}
+                              </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded uppercase border ${
-                            adm.role === 'superadmin'
-                              ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-                              : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                          }`}>
+                          <span
+                            className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded uppercase border ${
+                              adm.role === 'superadmin'
+                                ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                                : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                            }`}
+                          >
                             {adm.role}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{adm.lastLoginAt ? new Date(adm.lastLoginAt).toLocaleString('id-ID') : '—'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{new Date(adm.createdAt).toLocaleDateString('id-ID')}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {adm.lastLoginAt ? new Date(adm.lastLoginAt).toLocaleString('id-ID') : '—'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {new Date(adm.createdAt).toLocaleDateString('id-ID')}
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
@@ -857,7 +976,10 @@ export default function AdminDashboard() {
                               <Edit2 className="w-4 h-4" />
                             </button>
                             {adm.id !== adminUser.id && (
-                              <button onClick={() => deleteAdmin(adm.id)} className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-400 hover:text-red-500">
+                              <button
+                                onClick={() => deleteAdmin(adm.id)}
+                                className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-400 hover:text-red-500"
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -877,29 +999,51 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               className={`relative w-full max-w-xl border rounded-2xl shadow-2xl overflow-hidden ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}
             >
-              <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}>
-                <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{editingId ? 'Modify Component' : 'Register Component'}</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+              <div
+                className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}
+              >
+                <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {editingId ? 'Modify Component' : 'Register Component'}
+                </h3>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-gray-500 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
               <form onSubmit={handleComponentSubmit} className="p-6 space-y-5">
                 <div className="space-y-4">
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Full Name</label>
-                    <input required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:border-primary/50 outline-none transition-all ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`} />
+                    <input
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:border-primary/50 outline-none transition-all ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Category</label>
-                      <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                      <select
+                        value={formData.type}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      >
                         <option value="CPU">CPU</option>
                         <option value="GPU">GPU</option>
                         <option value="MOTHERBOARD">Motherboard</option>
@@ -912,27 +1056,45 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Brand</label>
-                      <input required value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`} />
+                      <input
+                        required
+                        value={formData.brand}
+                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Unit Price (IDR)</label>
-                      <input type="number" required value={formData.price} onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`} />
+                      <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">
+                        Unit Price (IDR)
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Socket / Gen</label>
-                      <input placeholder="e.g. AM5, LGA1700" value={formData.socket || ''} onChange={(e) => setFormData({ ...formData, socket: e.target.value })}
-                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`} />
+                      <input
+                        placeholder="e.g. AM5, LGA1700"
+                        value={formData.socket || ''}
+                        onChange={(e) => setFormData({ ...formData, socket: e.target.value })}
+                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">RAM Type</label>
-                      <select value={formData.ramType || ''} onChange={(e) => setFormData({ ...formData, ramType: e.target.value })}
-                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                      <select
+                        value={formData.ramType || ''}
+                        onChange={(e) => setFormData({ ...formData, ramType: e.target.value })}
+                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      >
                         <option value="">—</option>
                         <option value="DDR4">DDR4</option>
                         <option value="DDR5">DDR5</option>
@@ -940,8 +1102,11 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">Form Factor</label>
-                      <select value={formData.formFactor || ''} onChange={(e) => setFormData({ ...formData, formFactor: e.target.value })}
-                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                      <select
+                        value={formData.formFactor || ''}
+                        onChange={(e) => setFormData({ ...formData, formFactor: e.target.value })}
+                        className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      >
                         <option value="">—</option>
                         <option value="ATX">ATX</option>
                         <option value="Micro-ATX">Micro-ATX</option>
@@ -952,7 +1117,10 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="pt-4">
-                  <button type="submit" className="w-full py-3 bg-primary text-black font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all">
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-primary text-black font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all"
+                  >
                     {editingId ? 'Apply Changes' : 'Confirm Registration'}
                   </button>
                 </div>
@@ -966,7 +1134,13 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {adminModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAdminModal(null)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAdminModal(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1027,14 +1201,22 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {showChangePassword && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowChangePassword(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowChangePassword(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               className={`relative w-full max-w-md border rounded-2xl p-6 shadow-2xl ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}
             >
-              <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Change Password</h3>
+              <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Change Password
+              </h3>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">New Password</label>
@@ -1047,7 +1229,9 @@ export default function AdminDashboard() {
                   />
                 </div>
                 {changePasswordMessage && (
-                  <p className={`text-xs ${changePasswordMessage.includes('berhasil') ? 'text-green-500' : 'text-red-500'}`}>
+                  <p
+                    className={`text-xs ${changePasswordMessage.includes('berhasil') ? 'text-green-500' : 'text-red-500'}`}
+                  >
                     {changePasswordMessage}
                   </p>
                 )}
@@ -1126,7 +1310,12 @@ function extractCpuModel(name: string): string {
 function extractGpuVram(specs: any): string {
   if (!specs) return '';
   if (typeof specs === 'string') {
-    try { const p = JSON.parse(specs); return p?.vram || ''; } catch { return ''; }
+    try {
+      const p = JSON.parse(specs);
+      return p?.vram || '';
+    } catch {
+      return '';
+    }
   }
   return specs.vram || '';
 }
@@ -1143,7 +1332,9 @@ function extractGpuModel(name: string): string {
 
 function MetricCard({ label, value, isDarkMode }: { label: string; value: any; isDarkMode: boolean }) {
   return (
-    <div className={`border p-5 rounded-xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+    <div
+      className={`border p-5 rounded-xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}
+    >
       <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{label}</div>
       <div className="flex items-end justify-between">
         <div className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{value}</div>

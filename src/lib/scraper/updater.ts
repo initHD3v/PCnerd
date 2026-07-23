@@ -27,11 +27,18 @@ async function updateJob(id: string, data: Record<string, unknown>) {
 
 export async function getSyncStatus() {
   const job = await getActiveJob();
-  const latest = job?.status === 'running'
-    ? job
-    : await prisma.syncJob.findFirst({ orderBy: { createdAt: 'desc' } });
+  const latest = job?.status === 'running' ? job : await prisma.syncJob.findFirst({ orderBy: { createdAt: 'desc' } });
   return latest
-    ? { id: latest.id, status: latest.status, progress: latest.progress, total: latest.total, processed: latest.processed, message: latest.message, startedAt: latest.startedAt, endedAt: latest.endedAt }
+    ? {
+        id: latest.id,
+        status: latest.status,
+        progress: latest.progress,
+        total: latest.total,
+        processed: latest.processed,
+        message: latest.message,
+        startedAt: latest.startedAt,
+        endedAt: latest.endedAt,
+      }
     : { status: 'never_run', message: 'Belum pernah ada sinkronisasi.' };
 }
 
@@ -49,7 +56,12 @@ export async function updateAllPrices() {
       const total = components.length;
       let updated = 0;
 
-      await updateJob(jobId, { total, progress: 0, processed: 0, message: `Memulai sinkronisasi ${total} komponen...` });
+      await updateJob(jobId, {
+        total,
+        progress: 0,
+        processed: 0,
+        message: `Memulai sinkronisasi ${total} komponen...`,
+      });
 
       for (let i = 0; i < total; i++) {
         const component = components[i];

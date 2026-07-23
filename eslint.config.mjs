@@ -1,17 +1,17 @@
-import reactHooks from "eslint-plugin-react-hooks";
-import tsParser from "@typescript-eslint/parser";
+import reactHooks from 'eslint-plugin-react-hooks';
+import tsParser from '@typescript-eslint/parser';
 
 const { plugins, rules } = reactHooks.configs.flat.recommended;
 
 export default [
-  { ignores: [".next/**", "node_modules/**"] },
+  { ignores: ['.next/**', 'node_modules/**'] },
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module",
+        ecmaVersion: 'latest',
+        sourceType: 'module',
         ecmaFeatures: { jsx: true },
       },
     },

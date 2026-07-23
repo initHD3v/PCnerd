@@ -20,7 +20,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         ...body,
-        specs: body.specs !== undefined ? (typeof body.specs === 'string' ? JSON.parse(body.specs) : body.specs) : undefined,
+        specs:
+          body.specs !== undefined ? (typeof body.specs === 'string' ? JSON.parse(body.specs) : body.specs) : undefined,
       },
     });
     return NextResponse.json(component);

@@ -23,13 +23,7 @@ interface SyncStatus {
   processed?: number;
 }
 
-export default function SyncPanel({
-  isDarkMode,
-  onComplete,
-}: {
-  isDarkMode: boolean;
-  onComplete?: () => void;
-}) {
+export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: boolean; onComplete?: () => void }) {
   const [minimized, setMinimized] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -90,7 +84,10 @@ export default function SyncPanel({
         setShowPanel(false);
       }
     } catch {
-      if (mountedRef.current) { setSyncing(false); setShowPanel(false); }
+      if (mountedRef.current) {
+        setSyncing(false);
+        setShowPanel(false);
+      }
     }
   }, []);
 
@@ -133,9 +130,7 @@ export default function SyncPanel({
               <button
                 onClick={() => setMinimized(false)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl border transition-all hover:scale-105 ${
-                  isDarkMode
-                    ? 'bg-black border-white/10 text-white'
-                    : 'bg-white border-gray-200 text-gray-900'
+                  isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'
                 }`}
               >
                 <RefreshCw className={`w-4 h-4 ${isRunning ? 'animate-spin' : ''} text-primary`} />
@@ -149,13 +144,17 @@ export default function SyncPanel({
                 }`}
               >
                 {/* Header */}
-                <div className={`flex items-center justify-between px-5 py-4 border-b ${
-                  isDarkMode ? 'border-white/5' : 'border-gray-100'
-                }`}>
+                <div
+                  className={`flex items-center justify-between px-5 py-4 border-b ${
+                    isDarkMode ? 'border-white/5' : 'border-gray-100'
+                  }`}
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      isCompleted ? 'bg-emerald-500/10' : isFailed ? 'bg-red-500/10' : 'bg-primary/10'
-                    }`}>
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        isCompleted ? 'bg-emerald-500/10' : isFailed ? 'bg-red-500/10' : 'bg-primary/10'
+                      }`}
+                    >
                       {isCompleted ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                       ) : isFailed ? (
@@ -193,9 +192,9 @@ export default function SyncPanel({
                 <div className="px-5 py-4 space-y-4">
                   {/* Progress bar */}
                   <div>
-                    <div className={`w-full h-2 rounded-full overflow-hidden ${
-                      isDarkMode ? 'bg-white/5' : 'bg-gray-100'
-                    }`}>
+                    <div
+                      className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}
+                    >
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${status?.progress || 0}%` }}
@@ -226,9 +225,7 @@ export default function SyncPanel({
                     ) : (
                       <AlertCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
                     )}
-                    <p className={`text-xs leading-relaxed ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {status?.message || 'Memulai sinkronisasi...'}
                     </p>
                   </div>
