@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw,
@@ -27,6 +27,11 @@ import {
   EyeOff,
   CheckCircle2,
   AlertCircle,
+  Bot,
+  Loader2,
+  Zap,
+  ChevronRight,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -85,7 +90,7 @@ export default function AdminDashboard() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [activeSection, setActiveSection] = useState<'inventory' | 'admins'>('inventory');
+  const [activeSection, setActiveSection] = useState<'inventory' | 'admins' | 'llm'>('inventory');
 
   // Forgot password
   const [showForgot, setShowForgot] = useState(false);
@@ -606,6 +611,13 @@ export default function AdminDashboard() {
               onClick={() => setActiveSection('admins')}
             />
           )}
+          <SidebarLink
+            icon={Bot}
+            label="LLM Settings"
+            active={activeSection === 'llm'}
+            isDarkMode={isDarkMode}
+            onClick={() => setActiveSection('llm')}
+          />
         </nav>
 
         <div className="absolute bottom-10 left-6 right-6 space-y-2">
@@ -993,6 +1005,10 @@ export default function AdminDashboard() {
             </div>
           </>
         )}
+
+        {activeSection === 'llm' && (
+          <LLMSettingsPanel isDarkMode={isDarkMode} />
+        )}
       </main>
 
       {/* Component Modal */}
@@ -1328,6 +1344,198 @@ function extractCoolerSize(name: string): string {
 function extractGpuModel(name: string): string {
   const match = name.match(/(RTX\s*\d+\s*\w*|RX\s*\d+\s*\w*|GTX\s*\d+\s*\w*|Arc\s*\w*)/i);
   return match ? match[0] : '';
+}
+
+function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
+  const [baseUrl, setBaseUrl] = useState('http://127.0.0.1:1234');
+  const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testingStep, setTestingStep] = useState<'idle' | 'testing' | 'done'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(async (res) => {
+      if (res.ok) {
+        const data = await res.json();
+        if (data.LLM_BASE_URL) setBaseUrl(data.LLM_BASE_URL);
+        if (data.LLM_API_KEY) setApiKey(data.LLM_API_KEY);
+        if (data.LLM_MODEL) {
+          setModel(data.LLM_MODEL);
+          setConnected(true);
+        }
+      }
+    });
+  }, []);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestError(null);
+    setTestingStep('testing');
+    setAvailableModels([]);
+
+    try {
+      const res = await fetch('/api/admin/settings/test-llm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl, apiKey }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAvailableModels(data.availableModels || []);
+        setConnected(true);
+      } else {
+        setTestError(data.error || 'Gagal terhubung ke server');
+        setConnected(false);
+      }
+    } catch (e: any) {
+      setTestError(e.message || 'Gagal menghubungi server');
+      setConnected(false);
+    }
+    setTesting(false);
+    setTestingStep('done');
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ LLM_BASE_URL: baseUrl, LLM_API_KEY: apiKey, LLM_MODEL: model }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
+    setSaving(false);
+  };
+
+  const labelClass = 'text-xs font-medium mb-1.5 block';
+
+  return (
+    <div className="max-w-lg">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+          <Bot className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <h1 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>LLM Settings</h1>
+          <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+            Hubungkan ke server LLM untuk narasi AI
+          </p>
+        </div>
+      </div>
+
+      {/* Step 1: Server */}
+      <div className={`border rounded-xl p-5 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+        <div className={`text-[10px] font-bold tracking-widest mb-4 flex items-center gap-2 ${connected ? 'text-emerald-500' : 'text-gray-500'}`}>
+          <div className={`w-5 h-5 rounded-full flex items-center justify-center ${connected ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}>
+            {connected ? <Check className="w-3 h-3" /> : <span className="text-[10px]">1</span>}
+          </div>
+          {connected ? 'TERHUBUNG' : 'KONEKSIKAN SERVER'}
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className={`${labelClass} text-gray-500`}>Server URL</label>
+            <input
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="http://127.0.0.1:1234"
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none transition-all focus:border-primary/50 ${
+                isDarkMode ? 'bg-black border-white/10 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-200 text-gray-900'
+              }`}
+            />
+          </div>
+
+          <div>
+            <label className={`${labelClass} text-gray-500`}>API Key <span className="font-normal opacity-50">(opsional)</span></label>
+            <input
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none transition-all focus:border-primary/50 ${
+                isDarkMode ? 'bg-black border-white/10 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-200 text-gray-900'
+              }`}
+            />
+          </div>
+
+          {testError && (
+            <div className="flex items-start gap-2 text-xs text-red-500 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{testError}</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleTest}
+            disabled={testing || !baseUrl || !baseUrl.startsWith('http')}
+            className="w-full py-2.5 border border-primary/30 text-primary rounded-lg text-xs font-bold hover:bg-primary/5 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            {testing ? 'Menghubungkan...' : 'Test Connection'}
+          </button>
+        </div>
+      </div>
+
+      {/* Step 2: Model */}
+      {connected && (
+        <div className={`border rounded-xl p-5 mt-4 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+          <div className="text-[10px] font-bold tracking-widest mb-4 text-gray-500 flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-gray-500/10 flex items-center justify-center">
+              <span className="text-[10px]">2</span>
+            </div>
+            PILIH MODEL
+          </div>
+
+          {availableModels.length === 0 ? (
+            <p className="text-xs text-gray-500">Klik Test Connection untuk melihat daftar model.</p>
+          ) : (
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {availableModels.map((m) => {
+                const active = model === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => { setModel(m); setSaved(false); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-mono transition-all flex items-center gap-3 ${
+                      active
+                        ? 'bg-primary/10 text-primary border border-primary/20'
+                        : isDarkMode
+                          ? 'text-gray-400 border border-transparent hover:border-white/5 hover:bg-white/[0.02]'
+                          : 'text-gray-600 border border-transparent hover:border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${active ? 'bg-primary' : 'bg-gray-500/30'}`} />
+                    <span className="truncate">{m}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-4">
+            <button
+              onClick={handleSave}
+              disabled={saving || !model}
+              className="w-full py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-40 bg-primary text-black hover:opacity-90"
+            >
+              {saving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : saved ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : null}
+              {saving ? 'Menyimpan...' : saved ? 'Tersimpan' : 'Simpan Pengaturan'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MetricCard({ label, value, isDarkMode }: { label: string; value: any; isDarkMode: boolean }) {

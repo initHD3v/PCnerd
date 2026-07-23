@@ -262,6 +262,7 @@ async function fillRemainingBudget(
 async function generateSingleBuild(
   request: RecommendationRequest,
   mode: ScoringMode = 'balanced',
+  skipNarrative?: boolean,
 ): Promise<BuildResult> {
   const distribution = getExpertDistribution(request.budget, request.purpose, request.includePeripheral);
   const build: Record<string, HardwareComponent | null> = {};
@@ -403,7 +404,7 @@ async function generateSingleBuild(
     build.RAM?.name || '',
   );
 
-  const narrative = await generateNarrativeWithLLM(build, request);
+  const narrative = skipNarrative ? null : await generateNarrativeWithLLM(build, request);
   const cpuBench = findCpuBenchmark(build.CPU?.name || '');
   const gpuBench = findGpuBenchmark(build.GPU?.name || '');
   const bottleneck = analyzeBottleneck(cpuBench, gpuBench, request.resolution || '1080p');
@@ -440,11 +441,25 @@ export async function generateTieredBuilds(request: RecommendationRequest) {
   const cheapestBudget = Math.max(4000000, Math.round(maxBudget * 0.35));
   const midBudget = Math.max(7000000, Math.round(maxBudget * 0.65));
 
+  const cheapestReq = { ...request, budget: request.budget >= 4000000 ? cheapestBudget : maxBudget };
+  const midReq = { ...request, budget: request.budget >= 7000000 ? midBudget : maxBudget };
+  const perfReq = request;
+
   const [cheapest, mid, max] = await Promise.all([
-    generateSingleBuild({ ...request, budget: request.budget >= 4000000 ? cheapestBudget : maxBudget }, 'value'),
-    generateSingleBuild({ ...request, budget: request.budget >= 7000000 ? midBudget : maxBudget }, 'balanced'),
-    generateSingleBuild(request, 'performance'),
+    generateSingleBuild(cheapestReq, 'value', true),
+    generateSingleBuild(midReq, 'balanced', true),
+    generateSingleBuild(perfReq, 'performance', true),
   ]);
+
+  const tiers = [
+    { result: cheapest, req: cheapestReq },
+    { result: mid, req: midReq },
+    { result: max, req: perfReq },
+  ];
+  for (const { result, req } of tiers) {
+    result.narrative = await generateNarrativeWithLLM(result.build, req);
+    await new Promise((r) => setTimeout(r, 2000));
+  }
 
   return { tiers: { cheapest, mid, max }, targetBudget: maxBudget };
 }

@@ -126,13 +126,43 @@ export default function BuildResults() {
       <div
         className={`min-h-screen flex items-center justify-center transition-colors ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-black'}`}
       >
-        <div className="text-center">
-          <div className="relative w-16 h-16 mx-auto mb-6">
-            <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-            <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
-            <Zap className="absolute inset-0 m-auto w-6 h-6 text-primary" />
+        <div className="flex flex-col items-center gap-8">
+          <div className="relative w-28 h-28">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: `conic-gradient(from 0deg, transparent 30%, ${isDark ? '#10b981' : '#059669'} 50%, transparent 70%)`,
+                WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px))',
+                mask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px))',
+              }}
+            />
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-2 rounded-full border border-white/10"
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center"
+              >
+                <Zap className="w-7 h-7 text-primary" />
+              </motion.div>
+            </div>
           </div>
-          <p className="text-sm font-bold opacity-60">Meracik build terbaik...</p>
+          <div className="flex gap-2">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                animate={{ opacity: [0.2, 1, 0.2] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
+                className={`w-2 h-2 rounded-full ${isDark ? 'bg-emerald-500' : 'bg-emerald-600'}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     );
