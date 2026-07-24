@@ -14,11 +14,14 @@ import { callLLM } from './llm';
 export type BuildPurpose = 'Gaming' | 'Editing' | 'Office' | 'Streaming' | 'Coding' | 'Rendering';
 export type Resolution = '1080p' | '1440p' | '4K';
 
+export type Platform = 'intel' | 'amd' | 'default';
+
 export interface RecommendationRequest {
   budget: number;
   purpose: BuildPurpose;
   resolution?: Resolution;
   includePeripheral: boolean;
+  platform?: Platform;
 }
 
 export interface BudgetSplit {

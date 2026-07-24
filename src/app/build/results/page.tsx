@@ -35,7 +35,7 @@ import Link from 'next/link';
 import { predictPerformance, generateNarrative } from '@/lib/recommendation-engine';
 import { useTheme } from '@/hooks/use-theme';
 import ThemeToggle from '@/components/ThemeToggle';
-import { findCpuBenchmark, findGpuBenchmark, findRamImpact, suggestBottleneckFix } from '@/data/benchmarks';
+import { findCpuBenchmark, findGpuBenchmark, suggestBottleneckFix, analyzeBottleneck } from '@/data/benchmarks';
 
 const TYPE_ICONS: Record<string, any> = {
   CPU: Cpu,
@@ -78,6 +78,8 @@ export default function BuildResults() {
   const [ready, setReady] = useState(false);
   const [data, setData] = useState<any>(null);
   const [activeTier, setActiveTier] = useState<TierKey>('max');
+  const [appliedUpgrades, setAppliedUpgrades] = useState<Record<string, any>>({});
+  const [requestData, setRequestData] = useState<any>(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -96,6 +98,10 @@ export default function BuildResults() {
       setData(parsed);
     } catch {
       router.replace('/build');
+    }
+    const req = localStorage.getItem('build_request');
+    if (req) {
+      try { setRequestData(JSON.parse(req)); } catch {}
     }
     setReady(true);
   }, [router]);
@@ -119,7 +125,75 @@ export default function BuildResults() {
 
   const handleSwitchTier = (tier: TierKey) => {
     setActiveTier(tier);
+    setAppliedUpgrades({});
   };
+
+  const estimateGpuTdp = useCallback((gpu: any) => {
+    if (gpu?.tdp) return gpu.tdp;
+    const p = gpu?.price || 0;
+    if (p > 15000000) return 350;
+    if (p > 8000000) return 250;
+    if (p > 4000000) return 200;
+    if (p > 2000000) return 150;
+    return 100;
+  }, []);
+
+  const upgradeState = useMemo(() => {
+    if (!activeBuild) return null;
+    const build = { ...activeBuild.build };
+    for (const [type, part] of Object.entries(appliedUpgrades)) {
+      if (part && build[type]) build[type] = part;
+    }
+    const totalPrice = Object.values(build).reduce((s: number, p: any) => s + (p?.price || 0), 0);
+    const performance = predictPerformance(
+      build.GPU?.price || 0,
+      build.CPU?.price || 0,
+      build.GPU?.name || '',
+      activeBuild.resolution,
+      build.CPU?.name || '',
+      build.RAM?.name || '',
+    );
+    const totalTdp = (build.CPU?.tdp || 0) + (build.GPU ? estimateGpuTdp(build.GPU) : 0);
+    const psuWattage = build.PSU?.wattage || 0;
+    const isPsuSafe = psuWattage >= totalTdp * 1.25;
+    const cpuBench = findCpuBenchmark(build.CPU?.name || '');
+    const gpuBench = findGpuBenchmark(build.GPU?.name || '');
+    const bottleneck = analyzeBottleneck(cpuBench, gpuBench, activeBuild.resolution || '1080p');
+    const narrative = generateNarrative(
+      build,
+      { budget: activeBuild.targetBudget, purpose: requestData?.purpose || 'Gaming', resolution: activeBuild.resolution || '1080p', includePeripheral: false, platform: requestData?.platform || 'default' },
+      Object.keys(appliedUpgrades).length > 0,
+    );
+    return { build, totalPrice, performance, technical: { totalTdp, psuWattage, isPsuSafe, bottleneckStatus: bottleneck.status }, narrative };
+  }, [activeBuild, appliedUpgrades, requestData, estimateGpuTdp]);
+
+  const hasUpgrades = Object.keys(appliedUpgrades).length > 0;
+  const build = upgradeState?.build ?? activeBuild?.build ?? {};
+  const totalPrice = upgradeState?.totalPrice ?? activeBuild?.totalPrice ?? 0;
+  const performance = upgradeState?.performance ?? activeBuild?.performance ?? [];
+  const technical = upgradeState?.technical ?? activeBuild?.technical ?? {};
+  const narrative = hasUpgrades ? upgradeState?.narrative ?? {} : activeBuild?.narrative ?? {};
+
+  const handleUpgrade = useCallback((componentType: string, upgrade: any) => {
+    setAppliedUpgrades((prev) => ({ ...prev, [componentType]: upgrade.suggestedPart }));
+  }, []);
+
+  const handleReset = useCallback((componentType: string) => {
+    setAppliedUpgrades((prev) => {
+      const next = { ...prev };
+      delete next[componentType];
+      return next;
+    });
+  }, []);
+
+  const findUpgradeForType = useCallback((type: string) => {
+    const currentBuild = upgradeState?.build ?? activeBuild?.build ?? {};
+    const current = currentBuild[type];
+    if (!current?.id) return null;
+    return (activeBuild?.upgrades || []).find(
+      (u: any) => u.componentType === type && u.currentPart?.id === current.id,
+    );
+  }, [activeBuild, upgradeState]);
 
   if (!ready || !activeBuild) {
     return (
@@ -169,13 +243,7 @@ export default function BuildResults() {
   }
 
   const {
-    build,
-    totalPrice,
     targetBudget,
-    technical,
-    performance,
-    narrative,
-    upgrades,
     distribution,
     lowBudgetAdvice,
   } = activeBuild;
@@ -309,6 +377,8 @@ export default function BuildResults() {
                   .filter(([, part]) => part)
                   .map(([type, part]: [string, any]) => {
                     const Icon = TYPE_ICONS[type] || Box;
+                    const upgrade = findUpgradeForType(type);
+                    const isUpgraded = !!appliedUpgrades[type];
                     return (
                       <motion.div
                         layout
@@ -317,8 +387,13 @@ export default function BuildResults() {
                           isDark
                             ? 'bg-white/[0.03] border-white/5 hover:border-primary/30'
                             : 'bg-white border-gray-100 hover:border-primary/30 hover:shadow-sm'
-                        }`}
+                        } ${isUpgraded ? (isDark ? 'border-emerald-500/30' : 'border-emerald-400') : ''}`}
                       >
+                        {isUpgraded && (
+                          <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-500 text-[8px] font-black text-white tracking-wider shadow-lg z-10">
+                            UPGRADED
+                          </div>
+                        )}
                         <div className="flex items-start gap-3">
                           <div
                             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -367,6 +442,38 @@ export default function BuildResults() {
                                 {[part.socket, part.ramType].filter(Boolean).join(' · ')}
                               </div>
                             )}
+                            {isUpgraded ? (
+                              <div className="mt-3 pt-3 border-t border-dashed border-white/10">
+                                <button
+                                  onClick={() => handleReset(type)}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all ${
+                                    isDark
+                                      ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                  }`}
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="truncate flex-1 text-left">Reset ke part awal</span>
+                                </button>
+                              </div>
+                            ) : upgrade ? (
+                              <div className="mt-3 pt-3 border-t border-dashed border-white/10">
+                                <button
+                                  onClick={() => handleUpgrade(type, upgrade)}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all ${
+                                    isDark
+                                      ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                  }`}
+                                >
+                                  <ArrowUpCircle className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="truncate flex-1 text-left">{upgrade.suggestedPart.name}</span>
+                                  <span className="shrink-0">
+                                    +Rp {upgrade.priceDiff.toLocaleString('id-ID')}
+                                  </span>
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                           <div className="text-right shrink-0">
                             <div className="text-sm font-black text-primary">
@@ -547,47 +654,6 @@ export default function BuildResults() {
                   })}
               </div>
             </section>
-
-            {/* ── Upgrades ── */}
-            {upgrades?.length > 0 && (
-              <section>
-                <h3 className="text-sm font-black flex items-center gap-2 mb-4">
-                  <ArrowUpCircle className="w-4 h-4 text-emerald-400" /> Upgrade Opsi
-                </h3>
-                <div className="space-y-3">
-                  {upgrades.slice(0, 3).map((u: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-2xl border transition-all hover:border-primary/30 ${
-                        isDark ? 'bg-white/[0.03] border-white/5' : 'bg-white border-gray-100'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-[9px] font-black text-primary uppercase tracking-wider">
-                          {u.componentType}
-                        </span>
-                        <span className="text-[11px] font-black text-emerald-400">
-                          +Rp {u.priceDiff.toLocaleString('id-ID')}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold mb-1">{u.suggestedPart.name}</h4>
-                      {u.fpsUplift && (
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <TrendingUp className="w-3 h-3 text-emerald-400" />
-                          <span className="text-[10px] font-bold text-emerald-400">
-                            {u.fpsUplift.currentFps}
-                            {u.fpsUplift.currentFps < 200 ? ' FPS' : ''} → {u.fpsUplift.newFps}
-                            {u.fpsUplift.newFps < 200 ? ' FPS' : ''}
-                            <span className="opacity-60 ml-1">(+{u.fpsUplift.upliftPercent}%)</span>
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-[10px] opacity-40 mb-3">{u.benefit}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
 
             {/* ── Peripherals ── */}
             {[build.MONITOR, build.KEYBOARD, build.MOUSE].some(Boolean) && (

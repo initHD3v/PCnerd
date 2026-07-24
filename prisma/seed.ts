@@ -47,10 +47,11 @@ async function main() {
     'EVGA',
   ];
 
-  const addVariations = (base: any, count: number = 3) => {
+  const addVariations = (base: any, count: number = 3, validBrands?: string[]) => {
     components.push({ ...base, specs: base.specs || {} });
+    const pool = validBrands || brands;
     for (let i = 0; i < count; i++) {
-      const brand = brands[Math.floor(Math.random() * brands.length)];
+      const brand = pool[Math.floor(Math.random() * pool.length)];
       if (brand === base.brand) continue;
       const suffix = ['V2', 'OC', 'Pro', 'Elite', 'Gaming', 'TUF', 'ROG', 'Suprim', 'Aorus'][
         Math.floor(Math.random() * 9)
@@ -181,6 +182,7 @@ async function main() {
     { model: 'B450M', price: 1150000, socket: 'AM4', ramType: 'DDR4', formFactor: 'mATX' },
     { model: 'B550M', price: 1650000, socket: 'AM4', ramType: 'DDR4', formFactor: 'mATX' },
     // AMD AM5
+    { model: 'A620M', price: 1450000, socket: 'AM5', ramType: 'DDR5', formFactor: 'mATX' },
     { model: 'B650M', price: 2150000, socket: 'AM5', ramType: 'DDR5', formFactor: 'mATX' },
     { model: 'X670E', price: 6500000, socket: 'AM5', ramType: 'DDR5', formFactor: 'ATX' },
     // AMD AM5 (800 series — 2024-2025)
@@ -189,8 +191,9 @@ async function main() {
     { model: 'X870', price: 4500000, socket: 'AM5', ramType: 'DDR5', formFactor: 'ATX' },
     { model: 'X870E', price: 7500000, socket: 'AM5', ramType: 'DDR5', formFactor: 'ATX' },
   ];
+  const moboBrands = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Colorful'];
   moboBases.forEach((b) =>
-    addVariations({ ...b, brand: 'ASUS', type: ComponentType.MOTHERBOARD, name: `ASUS ${b.model}` }, 6),
+    addVariations({ ...b, brand: 'ASUS', type: ComponentType.MOTHERBOARD, name: `ASUS ${b.model}` }, 6, moboBrands),
   );
 
   // --- RAM ---

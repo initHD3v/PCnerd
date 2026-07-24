@@ -87,14 +87,44 @@
 - `dev.db` — SQLite database (checked in — do not delete).
 - `prisma/migrations/` — migration history (checked in).
 
-## Next Up — Sempurnakan Fitur AI
+## Changelog — 23 Jul 2026
 
-Pekerjaan untuk besok (prioritas):
+### Done
+- [x] **Local LLM integration (LM Studio)** — added `AppSetting` model, settings API (GET/PATCH/test-llm), and LM Studio provider to `llm.ts`. Users can connect to any OpenAI-compatible local server via admin LLM Settings.
+- [x] **LLM Settings UI redesign** — clean 3-step flow: input server URL → Test Connection → pick model from available list → save.
+- [x] **Increased `max_tokens` 1024 → 4096** — reasoning models (Qwen3) previously spent all tokens on "thinking", outputting empty/truncated JSON.
+- [x] **Sequential LLM narratives** — `generateTieredBuilds` now skips LLM during parallel build generation, then calls narratives sequentially with 2s delay to avoid LM Studio Channel Error.
+- [x] **Animated loading overlay** — full-screen blur overlay with spinning conic ring, pulsing CPU icon, cycling status messages, and animated dots during build generation.
+- [x] **Results page loading screen** — matching animated ring + dots while reading from localStorage.
+- [x] **Repo made public** — `initHD3v/PCnerd` is now public on GitHub.
 
-- [ ] **Bottleneck analysis berbasis benchmark** — ganti rasio harga dengan perbandingan performa real dari data benchmark. Contoh: CPU terlalu lemah untuk GPU jika skor PassMark CPU < 50% GPU. Butuh skor benchmark CPU di `benchmarks.ts`.
-- [ ] **Upgrade impact calculator** — hitung uplift FPS konkret saat upgrade GPU/CPU menggunakan data benchmark. Tampilkan "Upgrade ini akan meningkatkan FPS dari X menjadi Y" bukan teks statis.
-- [ ] **Tambahkan data CPU benchmark** — skor PassMark/Cinebench untuk CPU di `benchmarks.ts`, agar bottleneck analysis dan prediksi performa lebih akurat.
-- [ ] **LLM prompt improvement** — prompt narrative saat ini bisa dibuat lebih spesifik. Tambahkan data benchmark FPS ke prompt agar LLM bisa menyebutkan angka performa dalam analisisnya.
-- [ ] **Streaming LLM response** — alih-alih nunggu LLM selesai, stream response-nya ke user (SSE / ReadableStream) untuk UX yang lebih responsif.
-- [ ] **Multi-factor component scoring** — tidak cari termahal yang muat budget, tapi skor komponen berdasarkan (performa benchmark / harga). Bobot: compatibility 30%, performance 40%, value 20%, reliability 10%.
-- [ ] **RAM performance impact** — pengaruh frekuensi RAM terhadap performa gaming. Tambahkan data ke benchmark untuk show "DDR5-6000 vs DDR4-3200 impact".
+### Issues Encountered
+- **Qwen3-8B (reasoning model)**: terlalu lama (~80s reasoning per request) + token habis untuk berpikir, output JSON kosong/kepotong. Solusi: ganti ke non-reasoning model (Mistral 7B).
+- **LM Studio Channel Error**: Mistral 7B dengan Parallel=4 + Context=8192 kehabisan memory di M1 Pro 16GB. Belum terverifikasi fix Parallel=1 + Context=4096. Alternatif: Llama 3.2 3B atau Ollama.
+- **Prisma stale client**: setelah add model AppSetting, perlu `npx prisma generate` + restart dev server.
+
+### Files Touched
+| File | Change |
+|---|---|
+| `prisma/schema.prisma` | Added `AppSetting` model |
+| `prisma/migrations/` | New migration `add_app_setting` |
+| `src/lib/llm.ts` | Added LM Studio provider, DB-backed `detectConfig()`, increased max_tokens |
+| `src/lib/build-service.ts` | Sequential narrative generation with delay |
+| `src/lib/recommendation-engine.ts` | Passes benchmark FPS data in LLM prompt |
+| `src/app/admin/page.tsx` | New LLMSettingsPanel component |
+| `src/app/api/admin/settings/route.ts` | GET/PATCH for LLM settings |
+| `src/app/api/admin/settings/test-llm/route.ts` | Test connection endpoint |
+| `src/app/build/results/page.tsx` | Enhanced loading animation |
+| `src/components/build/BuildForm.tsx` | Loading overlay component |
+
+## Next Up — Review & Sempurnakan
+
+Untuk review besok:
+
+- [ ] **Test & verify** — LM Studio dengan Parallel=1 + Context=4096 apakah sudah stabil untuk Mistral 7B. Jika masih error, ganti ke Llama 3.2 3B atau install Ollama.
+- [ ] **LLM prompt improvement** — prompt narrative masih bisa dibuat lebih spesifik dengan data benchmark FPS agar LLM menyebutkan angka performa.
+- [ ] **Streaming LLM response** — `/api/ai/narrative` sudah support SSE, tapi belum di-wire ke hasil build. Stream narrative setelah halaman results load.
+- [ ] **Multi-factor component scoring** — skor komponen berdasarkan (performa benchmark / harga). Bobot: compatibility 30%, performance 40%, value 20%, reliability 10%.
+- [ ] **RAM performance impact** — tambahkan data pengaruh frekuensi RAM ke benchmark.
+- [ ] **Bottleneck analysis** — refinement threshold berdasarkan resolusi (sudah, tapi bisa diperhalus).
+- [ ] **Upgrade impact calculator** — hitung uplift FPS konkret saat upgrade GPU/CPU.

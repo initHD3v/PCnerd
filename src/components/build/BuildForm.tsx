@@ -15,7 +15,7 @@ import {
   ChevronUp,
   Zap,
 } from 'lucide-react';
-import { BuildPurpose, Resolution } from '@/lib/recommendation-engine';
+import { BuildPurpose, Resolution, Platform } from '@/lib/recommendation-engine';
 import { useTheme } from '@/hooks/use-theme';
 
 const PURPOSES: { id: BuildPurpose; label: string; icon: any }[] = [
@@ -34,6 +34,23 @@ const RESOLUTIONS: { id: Resolution; label: string }[] = [
 ];
 
 const PRESET_BUDGETS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100];
+
+function getAvailableResolutions(budget: number, purpose: BuildPurpose): Resolution[] {
+  if (purpose === 'Office' || purpose === 'Coding') {
+    if (budget >= 10000000) return ['1080p', '1440p', '4K'];
+    if (budget >= 5000000) return ['1080p', '1440p'];
+    return ['1080p'];
+  }
+  if (purpose === 'Editing' || purpose === 'Rendering') {
+    if (budget >= 20000000) return ['1080p', '1440p', '4K'];
+    if (budget >= 10000000) return ['1080p', '1440p'];
+    return ['1080p'];
+  }
+  // Gaming / Streaming
+  if (budget >= 25000000) return ['1080p', '1440p', '4K'];
+  if (budget >= 12000000) return ['1080p', '1440p'];
+  return ['1080p'];
+}
 
 const LOADING_MESSAGES = [
   'Menganalisis komponen hardware',
@@ -143,7 +160,15 @@ export default function BuildForm() {
     purpose: 'Gaming' as BuildPurpose,
     resolution: '1080p' as Resolution,
     includePeripheral: false,
+    platform: 'default' as Platform,
   });
+
+  const availableResolutions = useMemo(
+    () => getAvailableResolutions(formData.budget, formData.purpose),
+    [formData.budget, formData.purpose],
+  );
+
+  
 
   const nextStep = () => setStep((s) => s + 1);
   const prevStep = () => setStep((s) => s - 1);
@@ -156,10 +181,19 @@ export default function BuildForm() {
     return Number(str.replace(/[^0-9]/g, ''));
   };
 
+  const adjustResolution = (budget: number, purpose: BuildPurpose, current: Resolution): Resolution => {
+    const available = getAvailableResolutions(budget, purpose);
+    return available.includes(current) ? current : available[available.length - 1];
+  };
+
   const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = parseCurrency(e.target.value);
     if (rawValue <= 500000000) {
-      setFormData({ ...formData, budget: rawValue });
+      setFormData((prev) => ({
+        ...prev,
+        budget: rawValue,
+        resolution: adjustResolution(rawValue, prev.purpose, prev.resolution),
+      }));
     }
   };
 
@@ -178,6 +212,7 @@ export default function BuildForm() {
         alert('Error: ' + data.error);
       } else {
         localStorage.setItem('latest_build', JSON.stringify(data));
+        localStorage.setItem('build_request', JSON.stringify(formData));
         window.location.href = '/build/results';
       }
     } catch (err) {
@@ -262,7 +297,10 @@ export default function BuildForm() {
                     max="100000000"
                     step="500000"
                     value={formData.budget}
-                    onChange={(e) => setFormData({ ...formData, budget: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setFormData((prev) => ({ ...prev, budget: v, resolution: adjustResolution(v, prev.purpose, prev.resolution) }));
+                    }}
                     className="w-full h-2 bg-gray-200 dark:bg-emerald-900/30 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <div className="flex justify-between mt-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
@@ -277,7 +315,10 @@ export default function BuildForm() {
                   {displayedPresets.map((jt) => (
                     <button
                       key={jt}
-                      onClick={() => setFormData({ ...formData, budget: jt * 1000000 })}
+                      onClick={() => {
+                        const v = jt * 1000000;
+                        setFormData((prev) => ({ ...prev, budget: v, resolution: adjustResolution(v, prev.purpose, prev.resolution) }));
+                      }}
                       className={`py-2.5 px-2 border rounded-xl text-xs font-bold transition-all ${
                         formData.budget === jt * 1000000
                           ? 'bg-primary text-black border-primary'
@@ -324,7 +365,11 @@ export default function BuildForm() {
                   return (
                     <button
                       key={p.id}
-                      onClick={() => setFormData({ ...formData, purpose: p.id })}
+                      onClick={() => setFormData((prev) => ({
+                        ...prev,
+                        purpose: p.id,
+                        resolution: adjustResolution(prev.budget, p.id, prev.resolution),
+                      }))}
                       className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${
                         formData.purpose === p.id
                           ? 'bg-primary/10 border-primary text-primary'
@@ -356,7 +401,7 @@ export default function BuildForm() {
                 <label className="block">
                   <span className="text-gray-400 text-sm mb-2 block font-medium">Resolusi Target</span>
                   <div className="grid grid-cols-3 gap-2">
-                    {RESOLUTIONS.map((r) => (
+                    {RESOLUTIONS.filter((r) => availableResolutions.includes(r.id)).map((r) => (
                       <button
                         key={r.id}
                         onClick={() => setFormData({ ...formData, resolution: r.id })}
@@ -372,6 +417,38 @@ export default function BuildForm() {
                       </button>
                     ))}
                   </div>
+                  <p className={`mt-2 text-[10px] ${availableResolutions.length < 3 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {availableResolutions.length === 1
+                      ? 'Budget ini ideal untuk gaming 1080p.'
+                      : availableResolutions.length === 2
+                        ? 'Budget ini mendukung gaming 1080p – 1440p.'
+                        : 'Budget ini mendukung semua resolusi hingga 4K.'}
+                  </p>
+                </label>
+
+                <label className="block">
+                  <span className="text-gray-400 text-sm mb-2 block font-medium">Platform Prosesor</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([{ id: 'intel', label: 'Intel' },
+                      { id: 'amd', label: 'AMD' }] as { id: Platform; label: string }[]).map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setFormData((prev) => ({ ...prev, platform: prev.platform === p.id ? 'default' : p.id }))}
+                        className={`p-3 text-xs font-bold rounded-lg border transition-all ${
+                          formData.platform === p.id
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : isDarkMode
+                              ? 'bg-black border-white/10 text-gray-500'
+                              : 'bg-gray-50 border-gray-200 text-gray-400 shadow-sm'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {formData.platform === 'default' && (
+                    <p className="mt-2 text-[10px] opacity-50">PCNerd Engine akan memilih platform terbaik secara otomatis.</p>
+                  )}
                 </label>
 
                 <div

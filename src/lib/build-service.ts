@@ -153,6 +153,7 @@ async function findBestScored(
 async function ensureBalance(
   build: Record<string, HardwareComponent | null>,
   resolution: string = '1080p',
+  brandFilter: Record<string, string> = {},
 ): Promise<void> {
   if (!build.CPU || !build.GPU) return;
 
@@ -168,7 +169,7 @@ async function ensureBalance(
 
   if (upgrade.type === 'CPU') {
     const betterCpu = await prisma.hardwareComponent.findFirst({
-      where: { type: ComponentType.CPU, name: { contains: upgrade.model }, price: { lte: flexBudget } },
+      where: { type: ComponentType.CPU, name: { contains: upgrade.model }, price: { lte: flexBudget }, ...brandFilter },
       orderBy: { price: 'asc' },
     });
     if (!betterCpu || betterCpu.id === build.CPU.id) return;
@@ -218,6 +219,7 @@ async function ensureBalance(
 async function fillRemainingBudget(
   build: Record<string, HardwareComponent | null>,
   request: RecommendationRequest,
+  brandFilter: Record<string, string> = {},
 ): Promise<Record<string, HardwareComponent | null>> {
   const currentTotal = Object.values(build).reduce((s, p) => s + (p?.price || 0), 0);
   let remaining = request.budget - currentTotal;
@@ -240,11 +242,21 @@ async function fillRemainingBudget(
     const current = build[type];
     if (!current) continue;
 
+    let extraFilter: Record<string, any> = {};
+    if (type === ComponentType.CPU) {
+      extraFilter = { ...brandFilter };
+      if (build.MOTHERBOARD) {
+        extraFilter.socket = build.MOTHERBOARD.socket;
+      }
+    } else if (type === ComponentType.MOTHERBOARD && build.CPU) {
+      extraFilter = { socket: build.CPU.socket };
+    }
     const better = await prisma.hardwareComponent.findFirst({
       where: {
         type,
         price: { gt: current.price, lte: current.price + remaining },
         NOT: { id: current.id },
+        ...extraFilter,
       },
       orderBy: { price: 'desc' },
     });
@@ -269,7 +281,12 @@ async function generateSingleBuild(
 
   const ctx = { mode };
 
-  build.CPU = await findBestScored(ComponentType.CPU, request.budget * distribution.CPU, {}, ctx);
+  const brandFilter: Record<string, string> = request.platform === 'intel' ? { brand: 'Intel' }
+    : request.platform === 'amd' ? { brand: 'AMD' }
+    : {};
+
+  const cpuExtraWhere = brandFilter;
+  build.CPU = await findBestScored(ComponentType.CPU, request.budget * distribution.CPU, cpuExtraWhere, ctx);
   if (!build.CPU) throw new Error('Tidak ada CPU yang tersedia di database.');
 
   build.MOTHERBOARD = await findBestScored(
@@ -282,7 +299,7 @@ async function generateSingleBuild(
     build.GPU = await findBestScored(ComponentType.GPU, request.budget * distribution.GPU, {}, ctx);
   }
 
-  await ensureBalance(build, request.resolution || '1080p');
+  await ensureBalance(build, request.resolution || '1080p', brandFilter);
 
   build.RAM = await findBestScored(
     ComponentType.RAM,
@@ -326,8 +343,22 @@ async function generateSingleBuild(
     ];
     for (const type of typesToSwap) {
       if (build[type]) {
+        let compatFilter: Record<string, any> = {};
+        if (type === ComponentType.CPU) {
+          compatFilter = { ...brandFilter };
+          if (build.MOTHERBOARD) {
+            compatFilter.socket = build.MOTHERBOARD.socket;
+          }
+        } else if (type === ComponentType.RAM && build.MOTHERBOARD) {
+          compatFilter = { ramType: build.MOTHERBOARD.ramType };
+        } else if (type === ComponentType.MOTHERBOARD && build.CPU) {
+          compatFilter = { socket: build.CPU.socket };
+          if (build.RAM) {
+            compatFilter.ramType = build.RAM.ramType;
+          }
+        }
         const cheaper = await prisma.hardwareComponent.findFirst({
-          where: { type, price: { lt: build[type]!.price } },
+          where: { type, price: { lt: build[type]!.price }, ...compatFilter },
           orderBy: { price: 'desc' },
         });
         if (cheaper) {
@@ -340,45 +371,53 @@ async function generateSingleBuild(
   }
 
   if (mode === 'performance') {
-    await fillRemainingBudget(build, request);
+    await fillRemainingBudget(build, request, brandFilter);
     totalPrice = Object.values(build).reduce((sum, item) => sum + (item?.price || 0), 0);
   }
 
   const originalBuild = { ...build };
 
   const upgrades: UpgradeOption[] = [];
-  const findUpgrade = async (type: ComponentType, currentPart: HardwareComponent | null, extraWhere = {}) => {
+  const findUpgradeChain = async (type: ComponentType, currentPart: HardwareComponent | null, extraWhere = {}) => {
     if (!currentPart) return;
-    const suggested = await prisma.hardwareComponent.findFirst({
-      where: { type, price: { gt: currentPart.price, lte: currentPart.price * 1.5 }, ...extraWhere },
+    const candidates = await prisma.hardwareComponent.findMany({
+      where: { type, price: { gt: currentPart.price }, ...extraWhere },
       orderBy: { price: 'asc' },
+      take: 3,
     });
-    if (suggested) {
+    if (candidates.length === 0) return;
+    let from = currentPart;
+    for (const to of candidates) {
       const impact = getUpgradeImpact(
-        { name: currentPart.name, type },
-        { name: suggested.name, type },
+        { name: from.name, type },
+        { name: to.name, type },
         request.resolution || '1080p',
         type === 'CPU' ? build.GPU?.name : undefined,
       );
       upgrades.push({
         componentType: type,
-        currentPart,
-        suggestedPart: suggested,
-        priceDiff: suggested.price - currentPart.price,
-        newTotalPrice: totalPrice + (suggested.price - currentPart.price),
+        currentPart: from,
+        suggestedPart: to,
+        priceDiff: to.price - from.price,
+        newTotalPrice: totalPrice + (to.price - from.price),
         benefit: impact.benefit,
         fpsUplift:
           impact.currentFps !== undefined
             ? { currentFps: impact.currentFps!, newFps: impact.newFps!, upliftPercent: impact.upliftPercent! }
             : undefined,
       });
+      from = to;
     }
   };
 
-  await findUpgrade(ComponentType.GPU, build.GPU);
-  await findUpgrade(ComponentType.CPU, build.CPU);
-  await findUpgrade(ComponentType.RAM, build.RAM, { ramType: build.MOTHERBOARD?.ramType });
-  await findUpgrade(ComponentType.STORAGE, build.STORAGE);
+  await findUpgradeChain(ComponentType.GPU, build.GPU);
+  const cpuUpgradeFilter: Record<string, any> = { ...brandFilter };
+  if (build.MOTHERBOARD) {
+    cpuUpgradeFilter.socket = build.MOTHERBOARD.socket;
+  }
+  await findUpgradeChain(ComponentType.CPU, build.CPU, cpuUpgradeFilter);
+  await findUpgradeChain(ComponentType.RAM, build.RAM, { ramType: build.MOTHERBOARD?.ramType });
+  await findUpgradeChain(ComponentType.STORAGE, build.STORAGE);
 
   const isOverBudget = totalPrice > request.budget;
 
