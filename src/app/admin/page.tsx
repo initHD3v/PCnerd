@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw,
@@ -27,6 +27,8 @@ import {
   EyeOff,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
+  ShieldAlert,
   Bot,
   Loader2,
   Zap,
@@ -90,7 +92,7 @@ export default function AdminDashboard() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [activeSection, setActiveSection] = useState<'inventory' | 'admins' | 'llm'>('inventory');
+  const [activeSection, setActiveSection] = useState<'inventory' | 'admins' | 'llm' | 'quality'>('inventory');
 
   // Forgot password
   const [showForgot, setShowForgot] = useState(false);
@@ -115,6 +117,10 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | ComponentType>('ALL');
+  const [sortBy, setSortBy] = useState<
+    'default' | 'brand-asc' | 'brand-desc' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc'
+  >('default');
+  const [brandFilter, setBrandFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<HardwareComponent>>({
@@ -347,12 +353,34 @@ export default function AdminDashboard() {
     }
   };
 
-  const filteredComponents = components.filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) || c.brand.toLowerCase().includes(search.toLowerCase());
-    const matchesTab = activeTab === 'ALL' || c.type === activeTab;
-    return matchesSearch && matchesTab;
-  });
+  const uniqueBrands = useMemo(() => [...new Set(components.map((c) => c.brand))].sort(), [components]);
+
+  const filteredComponents = components
+    .filter((c) => {
+      const matchesSearch =
+        c.name.toLowerCase().includes(search.toLowerCase()) || c.brand.toLowerCase().includes(search.toLowerCase());
+      const matchesTab = activeTab === 'ALL' || c.type === activeTab;
+      const matchesBrand = brandFilter === 'ALL' || c.brand === brandFilter;
+      return matchesSearch && matchesTab && matchesBrand;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'brand-asc':
+          return a.brand.localeCompare(b.brand);
+        case 'brand-desc':
+          return b.brand.localeCompare(a.brand);
+        case 'price-asc':
+          return a.price - b.price;
+        case 'price-desc':
+          return b.price - a.price;
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        default:
+          return 0;
+      }
+    });
 
   // Loading state
   if (isAuthLoading) {
@@ -602,6 +630,13 @@ export default function AdminDashboard() {
             isDarkMode={isDarkMode}
             onClick={() => setActiveSection('inventory')}
           />
+          <SidebarLink
+            icon={ShieldAlert}
+            label="Data Quality"
+            active={activeSection === 'quality'}
+            isDarkMode={isDarkMode}
+            onClick={() => setActiveSection('quality')}
+          />
           {adminUser.role === 'superadmin' && (
             <SidebarLink
               icon={Users}
@@ -672,7 +707,19 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-3">
                 <ThemeToggle />
                 <div className="h-8 w-px bg-gray-200 dark:bg-white/10 mx-2" />
-                <SyncPanel isDarkMode={isDarkMode} onComplete={() => fetchComponents()} />
+                <SyncPanel
+                  isDarkMode={isDarkMode}
+                  onComplete={() => fetchComponents()}
+                  label="Sync Tokopedia"
+                  source="Tokopedia"
+                />
+                <SyncPanel
+                  isDarkMode={isDarkMode}
+                  onComplete={() => fetchComponents()}
+                  endpoint="/api/admin/sync/enterkomputer"
+                  label="Sync Enterkomputer"
+                  source="Enterkomputer"
+                />
                 <button
                   onClick={() => {
                     setEditingId(null);
@@ -692,7 +739,12 @@ export default function AdminDashboard() {
                 label="Average Price"
                 value={
                   components.length > 0
-                    ? `Rp ${(components.reduce((s, c) => s + c.price, 0) / components.length).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+                    ? (() => {
+                        const withPrice = components.filter((c) => c.price > 0);
+                        if (withPrice.length === 0) return '—';
+                        const avg = withPrice.reduce((s, c) => s + c.price, 0) / withPrice.length;
+                        return `Rp ${avg.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`;
+                      })()
                     : '—'
                 }
                 isDarkMode={isDarkMode}
@@ -737,17 +789,56 @@ export default function AdminDashboard() {
                   </button>
                 ))}
               </div>
-              <div className="relative group min-w-[300px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="text"
-                  placeholder="Search by name or brand..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className={`w-full border rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-primary/50 transition-all ${
-                    isDarkMode ? 'bg-black border-white/5 text-white' : 'bg-white border-gray-200 text-gray-900'
+              <div className="flex items-center gap-3">
+                <select
+                  value={brandFilter}
+                  onChange={(e) => setBrandFilter(e.target.value)}
+                  className={`text-xs font-bold border rounded-lg px-3 py-2 outline-none transition-all focus:border-primary/50 ${
+                    brandFilter !== 'ALL'
+                      ? 'border-primary/30 text-primary'
+                      : isDarkMode
+                        ? 'bg-black border-white/5 text-gray-400'
+                        : 'bg-white border-gray-200 text-gray-600'
                   }`}
-                />
+                >
+                  <option value="ALL">All Brands</option>
+                  {uniqueBrands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className={`text-xs font-bold border rounded-lg px-3 py-2 outline-none transition-all focus:border-primary/50 ${
+                    sortBy !== 'default'
+                      ? 'border-primary/30 text-primary'
+                      : isDarkMode
+                        ? 'bg-black border-white/5 text-gray-400'
+                        : 'bg-white border-gray-200 text-gray-600'
+                  }`}
+                >
+                  <option value="default">Default</option>
+                  <option value="brand-asc">Brand A-Z</option>
+                  <option value="brand-desc">Brand Z-A</option>
+                  <option value="price-asc">Price Low-High</option>
+                  <option value="price-desc">Price High-Low</option>
+                  <option value="name-asc">Name A-Z</option>
+                  <option value="name-desc">Name Z-A</option>
+                </select>
+                <div className="relative group min-w-[300px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Search by name or brand..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className={`w-full border rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-primary/50 transition-all ${
+                      isDarkMode ? 'bg-black border-white/5 text-white' : 'bg-white border-gray-200 text-gray-900'
+                    }`}
+                  />
+                </div>
               </div>
             </div>
 
@@ -901,6 +992,19 @@ export default function AdminDashboard() {
           </>
         )}
 
+        {activeSection === 'quality' && (
+          <DataQualityPanel
+            components={components}
+            isDarkMode={isDarkMode}
+            onEdit={(comp) => {
+              setEditingId(comp.id);
+              setFormData(comp);
+              setActiveSection('inventory');
+              setIsModalOpen(true);
+            }}
+          />
+        )}
+
         {activeSection === 'admins' && adminUser.role === 'superadmin' && (
           <>
             <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -1006,9 +1110,7 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {activeSection === 'llm' && (
-          <LLMSettingsPanel isDarkMode={isDarkMode} />
-        )}
+        {activeSection === 'llm' && <LLMSettingsPanel isDarkMode={isDarkMode} />}
       </main>
 
       {/* Component Modal */}
@@ -1432,8 +1534,12 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
 
       {/* Step 1: Server */}
       <div className={`border rounded-xl p-5 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
-        <div className={`text-[10px] font-bold tracking-widest mb-4 flex items-center gap-2 ${connected ? 'text-emerald-500' : 'text-gray-500'}`}>
-          <div className={`w-5 h-5 rounded-full flex items-center justify-center ${connected ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}>
+        <div
+          className={`text-[10px] font-bold tracking-widest mb-4 flex items-center gap-2 ${connected ? 'text-emerald-500' : 'text-gray-500'}`}
+        >
+          <div
+            className={`w-5 h-5 rounded-full flex items-center justify-center ${connected ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}
+          >
             {connected ? <Check className="w-3 h-3" /> : <span className="text-[10px]">1</span>}
           </div>
           {connected ? 'TERHUBUNG' : 'KONEKSIKAN SERVER'}
@@ -1447,19 +1553,25 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="http://127.0.0.1:1234"
               className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none transition-all focus:border-primary/50 ${
-                isDarkMode ? 'bg-black border-white/10 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-200 text-gray-900'
+                isDarkMode
+                  ? 'bg-black border-white/10 text-white placeholder:text-gray-600'
+                  : 'bg-gray-50 border-gray-200 text-gray-900'
               }`}
             />
           </div>
 
           <div>
-            <label className={`${labelClass} text-gray-500`}>API Key <span className="font-normal opacity-50">(opsional)</span></label>
+            <label className={`${labelClass} text-gray-500`}>
+              API Key <span className="font-normal opacity-50">(opsional)</span>
+            </label>
             <input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-..."
               className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none transition-all focus:border-primary/50 ${
-                isDarkMode ? 'bg-black border-white/10 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-200 text-gray-900'
+                isDarkMode
+                  ? 'bg-black border-white/10 text-white placeholder:text-gray-600'
+                  : 'bg-gray-50 border-gray-200 text-gray-900'
               }`}
             />
           </div>
@@ -1484,7 +1596,9 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
 
       {/* Step 2: Model */}
       {connected && (
-        <div className={`border rounded-xl p-5 mt-4 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}>
+        <div
+          className={`border rounded-xl p-5 mt-4 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}
+        >
           <div className="text-[10px] font-bold tracking-widest mb-4 text-gray-500 flex items-center gap-2">
             <div className="w-5 h-5 rounded-full bg-gray-500/10 flex items-center justify-center">
               <span className="text-[10px]">2</span>
@@ -1501,7 +1615,10 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
                 return (
                   <button
                     key={m}
-                    onClick={() => { setModel(m); setSaved(false); }}
+                    onClick={() => {
+                      setModel(m);
+                      setSaved(false);
+                    }}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-mono transition-all flex items-center gap-3 ${
                       active
                         ? 'bg-primary/10 text-primary border border-primary/20'
@@ -1535,6 +1652,286 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
         </div>
       )}
     </div>
+  );
+}
+
+const VALID_BRANDS: Record<string, string[]> = {
+  GPU: [
+    'ASUS',
+    'MSI',
+    'Gigabyte',
+    'ASRock',
+    'Colorful',
+    'Galax',
+    'Zotac',
+    'Palit',
+    'Sapphire',
+    'PowerColor',
+    'NVIDIA',
+    'AMD',
+  ],
+  CPU: ['Intel', 'AMD'],
+  MOTHERBOARD: ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Colorful'],
+  RAM: ['Corsair', 'G.Skill', 'Kingston', 'Crucial', 'ADATA', 'Team'],
+  STORAGE: ['Samsung', 'WD', 'Kingston', 'Crucial', 'Team', 'ADATA'],
+  PSU: ['Corsair', 'Seasonic', 'Cooler Master', 'MSI', 'Gigabyte', 'ASUS', 'EVGA'],
+  CASE: ['Corsair', 'NZXT', 'Lian Li', 'Cooler Master', 'Fractal', 'Paradox'],
+  COOLER: ['Deepcool', 'Cooler Master', 'Noctua', 'NZXT', 'Corsair', 'be quiet!'],
+};
+
+const SUFFIX_OWNERS: Record<string, string[]> = {
+  ROG: ['ASUS'],
+  TUF: ['ASUS'],
+  Aorus: ['Gigabyte'],
+  Suprim: ['MSI'],
+};
+
+interface QualityIssue {
+  component: HardwareComponent;
+  type: 'brand' | 'suffix' | 'spec';
+  severity: 'error' | 'warning';
+  message: string;
+}
+
+function analyzeQuality(components: HardwareComponent[]): QualityIssue[] {
+  const issues: QualityIssue[] = [];
+
+  for (const c of components) {
+    // 1. Brand check
+    const validBrands = VALID_BRANDS[c.type];
+    if (validBrands && !validBrands.includes(c.brand)) {
+      issues.push({
+        component: c,
+        type: 'brand',
+        severity: 'error',
+        message: `Brand "${c.brand}" tidak dikenal untuk tipe ${c.type}. Valid: ${validBrands.join(', ')}`,
+      });
+    }
+
+    // 2. Suffix check
+    for (const [suffix, owners] of Object.entries(SUFFIX_OWNERS)) {
+      const regex = new RegExp(`\\b${suffix}\\b`, 'i');
+      if (regex.test(c.name) && !owners.includes(c.brand)) {
+        issues.push({
+          component: c,
+          type: 'suffix',
+          severity: 'error',
+          message: `Suffix "${suffix}" milik ${owners.join('/')}, bukan ${c.brand}`,
+        });
+      }
+    }
+
+    // 3. Spec completeness
+    if (c.type === 'CPU' && !c.socket) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'CPU tidak memiliki socket' });
+    }
+    if (c.type === 'MOTHERBOARD' && !c.socket) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'Motherboard tidak memiliki socket' });
+    }
+    if (c.type === 'MOTHERBOARD' && !c.ramType) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'Motherboard tidak memiliki ramType' });
+    }
+    if (c.type === 'RAM' && !c.ramType) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'RAM tidak memiliki ramType' });
+    }
+    if (c.type === 'PSU' && !c.wattage) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'PSU tidak memiliki wattage' });
+    }
+    if (c.price < 0) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'Harga negatif' });
+    }
+    if (c.price === 0 && !c.name.toLowerCase().includes('stock cooler')) {
+      issues.push({ component: c, type: 'spec', severity: 'warning', message: 'Harga 0 (mungkin belum diisi)' });
+    }
+  }
+
+  return issues;
+}
+
+function DataQualityPanel({
+  components,
+  isDarkMode,
+  onEdit,
+}: {
+  components: HardwareComponent[];
+  isDarkMode: boolean;
+  onEdit: (comp: HardwareComponent) => void;
+}) {
+  const [filterType, setFilterType] = useState<'ALL' | ComponentType>('ALL');
+  const [filterIssue, setFilterIssue] = useState<'ALL' | 'brand' | 'suffix' | 'spec'>('ALL');
+
+  const issues = useMemo(() => analyzeQuality(components), [components]);
+
+  const filteredIssues = useMemo(() => {
+    return issues.filter((i) => {
+      if (filterType !== 'ALL' && i.component.type !== filterType) return false;
+      if (filterIssue !== 'ALL' && i.type !== filterIssue) return false;
+      return true;
+    });
+  }, [issues, filterType, filterIssue]);
+
+  const passCount = components.length - new Set(issues.map((i) => i.component.id)).size;
+
+  return (
+    <>
+      <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div>
+          <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Data Quality</h1>
+          <p className="text-sm text-gray-500">
+            Monitor kualitas data komponen — brand validity, suffix correctness, dan kelengkapan spesifikasi.
+          </p>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <MetricCard label="Total Komponen" value={components.length} isDarkMode={isDarkMode} />
+        <MetricCard
+          label="Bermasalah"
+          value={issues.length > 0 ? <span className="text-red-500">{issues.length}</span> : 0}
+          isDarkMode={isDarkMode}
+        />
+        <MetricCard
+          label="Pass Rate"
+          value={components.length > 0 ? `${((passCount / components.length) * 100).toFixed(1)}%` : '—'}
+          isDarkMode={isDarkMode}
+        />
+        <MetricCard
+          label="Issue Types"
+          value={
+            <>
+              <span className="text-red-500">{issues.filter((i) => i.severity === 'error').length}</span>
+              {' / '}
+              <span className="text-yellow-500">{issues.filter((i) => i.severity === 'warning').length}</span>
+            </>
+          }
+          isDarkMode={isDarkMode}
+        />
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+          {['ALL', 'brand', 'suffix', 'spec'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilterIssue(tab as any)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                filterIssue === tab
+                  ? 'bg-primary text-black'
+                  : isDarkMode
+                    ? 'bg-black border border-white/5 text-gray-400 hover:bg-white/10'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {tab === 'ALL' ? 'Semua Issue' : tab === 'brand' ? 'Brand' : tab === 'suffix' ? 'Suffix' : 'Spesifikasi'}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+          {['ALL', 'CPU', 'GPU', 'MOTHERBOARD', 'RAM', 'STORAGE', 'PSU', 'CASE', 'COOLER'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilterType(tab as any)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                filterType === tab
+                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  : isDarkMode
+                    ? 'bg-black border border-white/5 text-gray-400 hover:bg-white/10'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className={`border rounded-xl overflow-hidden shadow-2xl transition-colors duration-300 ${isDarkMode ? 'bg-black border-white/5' : 'bg-white border-gray-200'}`}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr
+                className={`border-b transition-colors ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}
+              >
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Component</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Issue Type</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Issue</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+              {filteredIssues.map((issue, idx) => {
+                const Icon = TYPE_ICONS[issue.component.type] || Box;
+                return (
+                  <tr
+                    key={`${issue.component.id}-${issue.type}-${idx}`}
+                    className={`transition-colors group ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-gray-50/50'}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center text-gray-400 ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}
+                        >
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div
+                            className={`text-sm font-bold leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                          >
+                            {issue.component.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {issue.component.brand} · {issue.component.type}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded uppercase border ${
+                          issue.severity === 'error'
+                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1">
+                          {issue.severity === 'error' ? (
+                            <AlertTriangle className="w-3 h-3" />
+                          ) : (
+                            <AlertCircle className="w-3 h-3" />
+                          )}
+                          {issue.type}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-xs text-gray-500 max-w-md">{issue.message}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => onEdit(issue.component)}
+                        className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary/20 transition-all"
+                      >
+                        Perbaiki
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {filteredIssues.length === 0 && (
+          <div className="py-20 text-center text-gray-500 flex flex-col items-center gap-3">
+            <ShieldCheck className="w-10 h-10 opacity-20" />
+            <p className="text-sm">Tidak ada masalah data. Semua komponen valid!</p>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

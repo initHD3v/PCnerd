@@ -23,7 +23,19 @@ interface SyncStatus {
   processed?: number;
 }
 
-export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: boolean; onComplete?: () => void }) {
+export default function SyncPanel({
+  isDarkMode,
+  onComplete,
+  endpoint = '/api/admin/sync',
+  label = 'Sync Prices',
+  source = 'Tokopedia',
+}: {
+  isDarkMode: boolean;
+  onComplete?: () => void;
+  endpoint?: string;
+  label?: string;
+  source?: string;
+}) {
   const [minimized, setMinimized] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -44,7 +56,7 @@ export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: bool
   const poll = useCallback(async () => {
     if (!mountedRef.current) return;
     try {
-      const res = await fetch('/api/admin/sync');
+      const res = await fetch(endpoint);
       if (res.ok) {
         const data = await res.json();
         if (!mountedRef.current) return;
@@ -59,7 +71,7 @@ export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: bool
     } catch {
       if (mountedRef.current) setSyncing(false);
     }
-  }, [onComplete]);
+  }, [endpoint, onComplete]);
 
   useEffect(() => {
     pollRef.current = poll;
@@ -71,7 +83,7 @@ export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: bool
     setShowPanel(true);
     setMinimized(false);
     try {
-      const res = await fetch('/api/admin/sync', { method: 'POST' });
+      const res = await fetch(endpoint, { method: 'POST' });
       const data = await res.json();
       if (!mountedRef.current) return;
       if (res.status === 409) {
@@ -89,7 +101,7 @@ export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: bool
         setShowPanel(false);
       }
     }
-  }, []);
+  }, [endpoint]);
 
   const closePanel = () => {
     setShowPanel(false);
@@ -113,7 +125,7 @@ export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: bool
               : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
           }`}
         >
-          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Sync Prices
+          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> {label}
         </button>
       )}
 
@@ -165,7 +177,11 @@ export default function SyncPanel({ isDarkMode, onComplete }: { isDarkMode: bool
                     </div>
                     <div>
                       <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {isCompleted ? 'Sync Complete' : isFailed ? 'Sync Failed' : 'Price Sync'}
+                        {isCompleted
+                          ? `${source} Sync Complete`
+                          : isFailed
+                            ? `${source} Sync Failed`
+                            : `${source} Price Sync`}
                       </div>
                       <div className="text-[10px] text-gray-500 font-medium">
                         {isRunning ? 'Sedang memproses...' : status?.message || ''}

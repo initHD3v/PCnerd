@@ -47,15 +47,46 @@ async function main() {
     'EVGA',
   ];
 
+  const brandSuffixMap: Record<string, string[]> = {
+    ASUS: ['V2', 'OC', 'Pro', 'Elite', 'Gaming', 'TUF', 'ROG'],
+    MSI: ['V2', 'OC', 'Pro', 'Elite', 'Gaming', 'MAG', 'MPG'],
+    Gigabyte: ['V2', 'OC', 'Pro', 'Elite', 'Gaming', 'Aorus'],
+    ASRock: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Colorful: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Galax: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Zotac: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Sapphire: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    PowerColor: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Palit: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    EVGA: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Corsair: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Seasonic: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    'Cooler Master': ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Deepcool: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Noctua: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    NZXT: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Fractal: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    'be quiet!': ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Paradox: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Samsung: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    WD: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Kingston: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Crucial: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    Team: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    ADATA: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    'Lian Li': ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    NVIDIA: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+    AMD: ['V2', 'OC', 'Pro', 'Elite', 'Gaming'],
+  };
+
   const addVariations = (base: any, count: number = 3, validBrands?: string[]) => {
     components.push({ ...base, specs: base.specs || {} });
     const pool = validBrands || brands;
     for (let i = 0; i < count; i++) {
       const brand = pool[Math.floor(Math.random() * pool.length)];
       if (brand === base.brand) continue;
-      const suffix = ['V2', 'OC', 'Pro', 'Elite', 'Gaming', 'TUF', 'ROG', 'Suprim', 'Aorus'][
-        Math.floor(Math.random() * 9)
-      ];
+      const suffixes = brandSuffixMap[brand] || ['V2', 'OC', 'Pro', 'Elite', 'Gaming'];
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
       components.push({
         ...base,
         name: `${brand} ${base.model || base.name || ''} ${suffix}`,
@@ -159,9 +190,11 @@ async function main() {
     { model: 'RX 9070 XT', price: 11000000, specs: { vram: '16GB GDDR6' } },
   ];
   const isNvidia = (m: string) => /^(GT |GTX |RTX )/i.test(m);
+  const nvidiaAibs = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Colorful', 'Galax', 'Zotac', 'Palit'];
+  const amdAibs = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Colorful', 'Sapphire', 'PowerColor'];
   gpuBases.forEach((b) => {
-    const brand = isNvidia(b.model) ? 'NVIDIA' : 'AMD';
-    addVariations({ ...b, brand, type: ComponentType.GPU, name: `${brand} ${b.model}` }, 8);
+    const chipsetBrand = isNvidia(b.model) ? 'NVIDIA' : 'AMD';
+    addVariations({ ...b, brand: chipsetBrand, type: ComponentType.GPU, name: `${chipsetBrand} ${b.model}` }, 8, isNvidia(b.model) ? nvidiaAibs : amdAibs);
   });
 
   // --- Motherboards (Masive Variations) ---
@@ -212,9 +245,11 @@ async function main() {
     { name: '64GB (2x32) DDR5 7200MHz RGB', price: 5500000, ramType: 'DDR5' },
     { name: '48GB (2x24) DDR5 8000MHz', price: 5800000, ramType: 'DDR5' },
   ];
-  ramBases.forEach((b) => addVariations({ ...b, brand: 'Team', type: ComponentType.RAM }, 5));
+  const ramBrands = ['Corsair', 'G.Skill', 'Kingston', 'Crucial', 'ADATA', 'Team'];
+  ramBases.forEach((b) => addVariations({ ...b, brand: 'Team', type: ComponentType.RAM }, 4, ramBrands));
 
   // --- Storage ---
+  const storageBrands = ['Samsung', 'WD', 'Kingston', 'Crucial', 'Team', 'ADATA'];
   [
     { name: '120GB SSD SATA', price: 185000 },
     { name: '240GB SSD SATA', price: 285000 },
@@ -228,9 +263,10 @@ async function main() {
     { name: '1TB NVMe Gen5', price: 3450000 },
     { name: '2TB NVMe Gen5', price: 5200000 },
     { name: '4TB NVMe Gen5', price: 9800000 },
-  ].forEach((s) => addVariations({ ...s, brand: 'Samsung', type: ComponentType.STORAGE }, 4));
+  ].forEach((s) => addVariations({ ...s, brand: 'Samsung', type: ComponentType.STORAGE }, 4, storageBrands));
 
   // --- PSU ---
+  const psuBrands = ['Corsair', 'Seasonic', 'Cooler Master', 'MSI', 'Gigabyte', 'ASUS', 'EVGA'];
   [
     { name: '400W 80+', price: 385000, wattage: 400 },
     { name: '500W 80+ Bronze', price: 550000, wattage: 500 },
@@ -238,25 +274,27 @@ async function main() {
     { name: '750W 80+ Gold', price: 1450000, wattage: 750 },
     { name: '850W 80+ Gold Modular', price: 1950000, wattage: 850 },
     { name: '1000W 80+ Gold ATX 3.0', price: 2850000, wattage: 1000 },
-  ].forEach((p) => addVariations({ ...p, brand: 'Corsair', type: ComponentType.PSU }, 5));
+  ].forEach((p) => addVariations({ ...p, brand: 'Corsair', type: ComponentType.PSU }, 5, psuBrands));
 
   // --- Case ---
+  const caseBrands = ['Corsair', 'NZXT', 'Lian Li', 'Cooler Master', 'Fractal', 'Paradox'];
   [
     { name: 'mATX Office Case', price: 250000, formFactor: 'mATX' },
     { name: 'Gaming Case RGB', price: 550000, formFactor: 'ATX' },
     { name: 'Mesh Airflow Case', price: 850000, formFactor: 'ATX' },
     { name: 'Premium Glass Case', price: 1550000, formFactor: 'ATX' },
     { name: 'Dual Chamber Case', price: 2450000, formFactor: 'ATX' },
-  ].forEach((c) => addVariations({ ...c, brand: 'Paradox', type: ComponentType.CASE }, 6));
+  ].forEach((c) => addVariations({ ...c, brand: 'Paradox', type: ComponentType.CASE }, 6, caseBrands));
 
   // --- Cooler ---
+  const coolerBrands = ['Deepcool', 'Cooler Master', 'Noctua', 'NZXT', 'Corsair', 'be quiet!'];
   [
     { name: 'Stock Cooler', price: 0, type: ComponentType.COOLER },
     { name: 'Air Cooler Single Tower', price: 250000, type: ComponentType.COOLER },
     { name: 'Air Cooler Dual Tower', price: 650000, type: ComponentType.COOLER },
     { name: '240mm AIO Liquid', price: 950000, type: ComponentType.COOLER },
     { name: '360mm AIO Liquid RGB', price: 1850000, type: ComponentType.COOLER },
-  ].forEach((c) => addVariations({ ...c, brand: 'Deepcool', type: ComponentType.COOLER }, 5));
+  ].forEach((c) => addVariations({ ...c, brand: 'Deepcool', type: ComponentType.COOLER }, 5, coolerBrands));
 
   try {
     console.log(`Total components to seed: ${components.length}`);

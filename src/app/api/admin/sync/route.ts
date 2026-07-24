@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { updateAllPrices, getSyncStatus } from '@/lib/scraper/updater';
+import { updateAllPricesFromTokopedia, getSyncStatus } from '@/lib/scraper/updater';
 
 export async function POST() {
   try {
-    const result = await updateAllPrices();
+    const result = await updateAllPricesFromTokopedia();
     const status = result.success ? 200 : 409;
     return NextResponse.json(result, { status });
   } catch (error: any) {

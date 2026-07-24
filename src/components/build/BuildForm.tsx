@@ -230,27 +230,36 @@ export default function BuildForm() {
         {loading && <BuildLoadingOverlay isDarkMode={isDarkMode} />}
       </AnimatePresence>
       <div className="max-w-2xl mx-auto w-full">
-      <div className="mb-8 flex justify-between items-center px-4">
-        {[1, 2, 3].map((s) => (
-          <div key={s} className="flex items-center">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
-                step >= s
-                  ? 'bg-primary text-primary-foreground'
-                  : isDarkMode
-                    ? 'bg-black text-gray-500 border border-white/10'
-                    : 'bg-gray-100 text-gray-400 border border-gray-200'
-              }`}
-            >
-              {step > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+      <div className="mb-8 px-4">
+        <div className="flex justify-between items-center mb-3">
+          {[{ n: 1, label: 'Budget' }, { n: 2, label: 'Tujuan' }, { n: 3, label: 'Preferensi' }].map((s) => (
+            <div key={s.n} className="flex flex-col items-center">
+              <motion.div
+                animate={step >= s.n ? { scale: [1, 1.15, 1] } : {}}
+                transition={{ duration: 0.3 }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                  step >= s.n
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                    : isDarkMode
+                      ? 'bg-black text-gray-500 border border-white/10'
+                      : 'bg-gray-100 text-gray-400 border border-gray-200'
+                }`}
+              >
+                {step > s.n ? <CheckCircle2 className="w-5 h-5" /> : s.n}
+              </motion.div>
+              <span className={`text-[10px] font-bold mt-1.5 tracking-wider uppercase ${step >= s.n ? 'text-primary' : 'opacity-30'}`}>
+                {s.label}
+              </span>
             </div>
-            {s < 3 && (
-              <div
-                className={`h-1 w-12 md:w-24 mx-2 transition-colors ${step > s ? 'bg-primary' : isDarkMode ? 'bg-black border-white/5' : 'bg-gray-200'}`}
-              />
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
+        <div className="relative h-1 bg-gray-200 dark:bg-white/5 rounded-full overflow-hidden">
+          <motion.div
+            animate={{ width: `${((step - 1) / 2) * 100}%` }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="absolute inset-y-0 left-0 bg-primary rounded-full"
+          />
+        </div>
       </div>
 
       <div className="glass-card p-8 min-h-[450px] flex flex-col">

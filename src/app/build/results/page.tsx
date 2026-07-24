@@ -375,7 +375,7 @@ export default function BuildResults() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {Object.entries(build)
                   .filter(([, part]) => part)
-                  .map(([type, part]: [string, any]) => {
+                  .map(([type, part]: [string, any], idx) => {
                     const Icon = TYPE_ICONS[type] || Box;
                     const upgrade = findUpgradeForType(type);
                     const isUpgraded = !!appliedUpgrades[type];
@@ -383,26 +383,19 @@ export default function BuildResults() {
                       <motion.div
                         layout
                         key={type}
-                        className={`group relative p-4 rounded-2xl border transition-all hover:shadow-md ${
-                          isDark
-                            ? 'bg-white/[0.03] border-white/5 hover:border-primary/30'
-                            : 'bg-white border-gray-100 hover:border-primary/30 hover:shadow-sm'
-                        } ${isUpgraded ? (isDark ? 'border-emerald-500/30' : 'border-emerald-400') : ''}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: idx * 0.06, ease: 'easeOut' }}
+                        className={`component-card ${isUpgraded ? (isDark ? '!border-emerald-500/30' : '!border-emerald-400') : ''}`}
                       >
                         {isUpgraded && (
-                          <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-500 text-[8px] font-black text-white tracking-wider shadow-lg z-10">
+                          <div className="absolute -top-2.5 -right-2.5 px-2 py-0.5 rounded-full bg-emerald-500 text-[8px] font-black text-white tracking-wider shadow-lg z-10">
                             UPGRADED
                           </div>
                         )}
                         <div className="flex items-start gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                              isDark ? 'bg-white/5' : 'bg-gray-50'
-                            } group-hover:bg-primary/10 transition-colors`}
-                          >
-                            <Icon
-                              className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-500'} group-hover:text-primary transition-colors`}
-                            />
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                            <Icon className="w-5 h-5 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-0.5">
@@ -411,46 +404,30 @@ export default function BuildResults() {
                               </span>
                             </div>
                             <h4 className="text-sm font-bold truncate">{part.name}</h4>
-                            {type === 'GPU' && (
-                              <div className="text-[10px] opacity-40 mt-0.5">
-                                {extractGpuModel(part.name)}{' '}
-                                {extractGpuVram(part.specs) ? `· ${extractGpuVram(part.specs)}` : ''}
-                              </div>
-                            )}
-                            {type === 'RAM' && (
-                              <div className="text-[10px] opacity-40 mt-0.5">
-                                {[part.ramType, extractRamSpeed(part.name)].filter(Boolean).join(' · ')}
-                              </div>
-                            )}
-                            {type === 'STORAGE' && (
-                              <div className="text-[10px] opacity-40 mt-0.5">
-                                {[extractStorageCapacity(part.name), extractStorageType(part.name)]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </div>
-                            )}
-                            {type === 'CPU' && (
-                              <div className="text-[10px] opacity-40 mt-0.5">
-                                {[part.socket, part.tdp ? `${part.tdp}W` : ''].filter(Boolean).join(' · ')}
-                              </div>
-                            )}
-                            {type === 'PSU' && part.wattage && (
-                              <div className="text-[10px] opacity-40 mt-0.5">{part.wattage}W</div>
-                            )}
-                            {type === 'MOTHERBOARD' && (
-                              <div className="text-[10px] opacity-40 mt-0.5">
-                                {[part.socket, part.ramType].filter(Boolean).join(' · ')}
-                              </div>
-                            )}
+                            <div className="flex flex-wrap gap-x-2 text-[10px] opacity-40 mt-0.5">
+                              {type === 'GPU' && (
+                                <span>{extractGpuModel(part.name)}{extractGpuVram(part.specs) ? ` · ${extractGpuVram(part.specs)}` : ''}</span>
+                              )}
+                              {type === 'RAM' && (
+                                <span>{[part.ramType, extractRamSpeed(part.name)].filter(Boolean).join(' · ')}</span>
+                              )}
+                              {type === 'STORAGE' && (
+                                <span>{[extractStorageCapacity(part.name), extractStorageType(part.name)].filter(Boolean).join(' · ')}</span>
+                              )}
+                              {type === 'CPU' && (
+                                <span>{[part.socket, part.tdp ? `${part.tdp}W` : ''].filter(Boolean).join(' · ')}</span>
+                              )}
+                              {type === 'PSU' && part.wattage && <span>{part.wattage}W</span>}
+                              {type === 'MOTHERBOARD' && (
+                                <span>{[part.socket, part.ramType].filter(Boolean).join(' · ')}</span>
+                              )}
+                            </div>
+
                             {isUpgraded ? (
                               <div className="mt-3 pt-3 border-t border-dashed border-white/10">
                                 <button
                                   onClick={() => handleReset(type)}
-                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all ${
-                                    isDark
-                                      ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
-                                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                                  }`}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                                   <span className="truncate flex-1 text-left">Reset ke part awal</span>
@@ -460,17 +437,11 @@ export default function BuildResults() {
                               <div className="mt-3 pt-3 border-t border-dashed border-white/10">
                                 <button
                                   onClick={() => handleUpgrade(type, upgrade)}
-                                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all ${
-                                    isDark
-                                      ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                                  }`}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
                                 >
                                   <ArrowUpCircle className="w-3.5 h-3.5 shrink-0" />
                                   <span className="truncate flex-1 text-left">{upgrade.suggestedPart.name}</span>
-                                  <span className="shrink-0">
-                                    +Rp {upgrade.priceDiff.toLocaleString('id-ID')}
-                                  </span>
+                                  <span className="shrink-0">+Rp {upgrade.priceDiff.toLocaleString('id-ID')}</span>
                                 </button>
                               </div>
                             ) : null}
@@ -513,7 +484,7 @@ export default function BuildResults() {
                   return (
                     <div
                       key={idx}
-                      className={`p-5 rounded-2xl border-l-4 ${levelColor} ${isDark ? 'bg-white/[0.03] border-white/5' : 'bg-white border-gray-100'}`}
+                      className={`section-card border-l-4 ${levelColor}`}
                     >
                       <div className="text-[10px] font-bold uppercase tracking-wider opacity-40 mb-1">
                         {perf.category}
@@ -534,7 +505,7 @@ export default function BuildResults() {
 
             {/* ── Technical Details ── */}
             <section
-              className={`p-5 rounded-2xl border ${isDark ? 'bg-white/[0.03] border-white/5' : 'bg-white border-gray-100'}`}
+              className="section-card"
             >
               <h3 className="text-sm font-black mb-4 flex items-center gap-2">
                 <Gauge className="w-4 h-4 text-primary" /> Technical Overview
@@ -567,7 +538,7 @@ export default function BuildResults() {
           <div className="lg:col-span-4 space-y-6">
             {/* ── AI Narrative ── */}
             <section
-              className={`p-5 rounded-2xl border ${isDark ? 'bg-white/[0.03] border-white/5' : 'bg-white border-gray-100'}`}
+              className="section-card"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
@@ -625,7 +596,7 @@ export default function BuildResults() {
 
             {/* ── Budget Distribution ── */}
             <section
-              className={`p-5 rounded-2xl border ${isDark ? 'bg-white/[0.03] border-white/5' : 'bg-white border-gray-100'}`}
+              className="section-card"
             >
               <div className="flex items-center gap-2 mb-5">
                 <BarChart3 className="w-4 h-4 text-primary" />
@@ -764,7 +735,7 @@ function PeripheralsCard({ build, isDark }: { build: any; isDark: boolean }) {
 
   return (
     <section
-      className={`p-5 rounded-2xl border ${isDark ? 'bg-white/[0.03] border-white/5' : 'bg-white border-gray-100'}`}
+      className="section-card"
     >
       <div className="flex items-center gap-2 mb-4">
         <Monitor className="w-4 h-4 text-primary" />
