@@ -220,12 +220,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Clamp minimum budget
-    if (extracted!.budget < 3000000) {
-      extracted!.budget = 3000000;
+    const MIN_BUDGET: Record<string, number> = {
+      Gaming: 8_000_000,
+      Editing: 10_000_000,
+      Rendering: 20_000_000,
+      Streaming: 12_000_000,
+      Coding: 7_000_000,
+      Office: 4_500_000,
+    };
+    const minForPurpose = MIN_BUDGET[extracted!.purpose] || 4_500_000;
+    if (extracted!.budget < minForPurpose) {
+      extracted!.budget = minForPurpose;
     }
 
-    const result = await generateTieredBuilds(extracted!);
+    const result = await generateTieredBuilds({ ...extracted!, text: prompt });
 
     return NextResponse.json({
       request: extracted!,

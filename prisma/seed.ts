@@ -16,7 +16,15 @@ const realBrand = (brand: string, name: string) => ({ brand, name });
 
 const moboBrands = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Colorful'] as const;
 
-const realMobo = (brand: (typeof moboBrands)[number], model: string, chipset: string, socket: string, ramType: string, formFactor: string, price: number) => ({
+const realMobo = (
+  brand: (typeof moboBrands)[number],
+  model: string,
+  chipset: string,
+  socket: string,
+  ramType: string,
+  formFactor: string,
+  price: number,
+) => ({
   name: `${brand} ${model}`,
   brand,
   model,
@@ -56,7 +64,13 @@ const asusMobos: Record<string, string[]> = {
   B450M: ['PRIME B450M-A II', 'TUF GAMING B450M-PRO II', 'ROG STRIX B450M-A'],
   B550M: ['PRIME B550M-A', 'PRIME B550M-K', 'TUF GAMING B550M-PLUS', 'TUF GAMING B550M-PLUS WIFI', 'ROG STRIX B550M-A'],
   A620M: ['PRIME A620M-A', 'TUF GAMING A620M-PLUS'],
-  B650M: ['PRIME B650M-A', 'PRIME B650M-A WIFI II', 'TUF GAMING B650M-PLUS', 'TUF GAMING B650M-PLUS WIFI', 'ROG STRIX B650M-E WIFI'],
+  B650M: [
+    'PRIME B650M-A',
+    'PRIME B650M-A WIFI II',
+    'TUF GAMING B650M-PLUS',
+    'TUF GAMING B650M-PLUS WIFI',
+    'ROG STRIX B650M-E WIFI',
+  ],
   B840M: ['PRIME B840M-A WIFI'],
   B850M: ['PRIME B850M-A', 'TUF GAMING B850M-PLUS', 'ROG STRIX B850M-E'],
   X670E: ['TUF GAMING X670E-PLUS', 'ROG STRIX X670E-A', 'ROG STRIX X670E-E', 'ROG CROSSHAIR X670E HERO'],
@@ -65,7 +79,13 @@ const asusMobos: Record<string, string[]> = {
   H510M: ['PRIME H510M-A', 'PRIME H510M-E', 'TUF GAMING H510M-PLUS'],
   B560M: ['PRIME B560M-A', 'TUF GAMING B560M-PLUS', 'TUF GAMING B560M-PLUS WIFI', 'ROG STRIX B560M-A'],
   H610M: ['PRIME H610M-A DDR4', 'PRIME H610M-E DDR4', 'TUF GAMING H610M-PLUS'],
-  B760M: ['PRIME B760M-A DDR4', 'PRIME B760M-A WIFI', 'TUF GAMING B760M-PLUS', 'TUF GAMING B760M-PLUS WIFI II', 'ROG STRIX B760M-A'],
+  B760M: [
+    'PRIME B760M-A DDR4',
+    'PRIME B760M-A WIFI',
+    'TUF GAMING B760M-PLUS',
+    'TUF GAMING B760M-PLUS WIFI II',
+    'ROG STRIX B760M-A',
+  ],
   Z790: ['PRIME Z790-P', 'TUF GAMING Z790-PLUS', 'ROG STRIX Z790-E', 'ROG MAXIMUS Z790 HERO'],
   H810M: ['PRIME H810M-A'],
   B860M: ['PRIME B860M-A', 'TUF GAMING B860M-PLUS', 'ROG STRIX B860M-E'],
@@ -176,36 +196,261 @@ async function main() {
   // ─── CPUs ───
   const cpus: any[] = [
     // Intel LGA1200 & LGA1700
-    { name: 'Intel Core i3-10100F', brand: 'Intel', model: 'i3-10100F', type: ComponentType.CPU, price: 1050000, socket: 'LGA1200', tdp: 65 },
-    { name: 'Intel Core i5-10400F', brand: 'Intel', model: 'i5-10400F', type: ComponentType.CPU, price: 1550000, socket: 'LGA1200', tdp: 65 },
-    { name: 'Intel Core i3-12100F', brand: 'Intel', model: 'i3-12100F', type: ComponentType.CPU, price: 1250000, socket: 'LGA1700', tdp: 58 },
-    { name: 'Intel Core i5-12400F', brand: 'Intel', model: 'i5-12400F', type: ComponentType.CPU, price: 1850000, socket: 'LGA1700', tdp: 65 },
-    { name: 'Intel Core i5-13400F', brand: 'Intel', model: 'i5-13400F', type: ComponentType.CPU, price: 3100000, socket: 'LGA1700', tdp: 65 },
-    { name: 'Intel Core i5-13600K', brand: 'Intel', model: 'i5-13600K', type: ComponentType.CPU, price: 4100000, socket: 'LGA1700', tdp: 125 },
-    { name: 'Intel Core i7-14700K', brand: 'Intel', model: 'i7-14700K', type: ComponentType.CPU, price: 6850000, socket: 'LGA1700', tdp: 125 },
-    { name: 'Intel Core i9-14900K', brand: 'Intel', model: 'i9-14900K', type: ComponentType.CPU, price: 9600000, socket: 'LGA1700', tdp: 125 },
+    {
+      name: 'Intel Core i3-10100F',
+      brand: 'Intel',
+      model: 'i3-10100F',
+      type: ComponentType.CPU,
+      price: 1050000,
+      socket: 'LGA1200',
+      tdp: 65,
+    },
+    {
+      name: 'Intel Core i5-10400F',
+      brand: 'Intel',
+      model: 'i5-10400F',
+      type: ComponentType.CPU,
+      price: 1550000,
+      socket: 'LGA1200',
+      tdp: 65,
+    },
+    {
+      name: 'Intel Core i3-12100F',
+      brand: 'Intel',
+      model: 'i3-12100F',
+      type: ComponentType.CPU,
+      price: 1250000,
+      socket: 'LGA1700',
+      tdp: 58,
+    },
+    {
+      name: 'Intel Core i3-12100',
+      brand: 'Intel',
+      model: 'i3-12100',
+      type: ComponentType.CPU,
+      price: 1425000,
+      socket: 'LGA1700',
+      tdp: 60,
+    },
+    {
+      name: 'Intel Core i5-12400F',
+      brand: 'Intel',
+      model: 'i5-12400F',
+      type: ComponentType.CPU,
+      price: 1850000,
+      socket: 'LGA1700',
+      tdp: 65,
+    },
+    {
+      name: 'Intel Core i5-13400F',
+      brand: 'Intel',
+      model: 'i5-13400F',
+      type: ComponentType.CPU,
+      price: 3100000,
+      socket: 'LGA1700',
+      tdp: 65,
+    },
+    {
+      name: 'Intel Core i5-13600K',
+      brand: 'Intel',
+      model: 'i5-13600K',
+      type: ComponentType.CPU,
+      price: 4100000,
+      socket: 'LGA1700',
+      tdp: 125,
+    },
+    {
+      name: 'Intel Core i7-14700K',
+      brand: 'Intel',
+      model: 'i7-14700K',
+      type: ComponentType.CPU,
+      price: 6850000,
+      socket: 'LGA1700',
+      tdp: 125,
+    },
+    {
+      name: 'Intel Core i9-14900K',
+      brand: 'Intel',
+      model: 'i9-14900K',
+      type: ComponentType.CPU,
+      price: 9600000,
+      socket: 'LGA1700',
+      tdp: 125,
+    },
     // Intel Arrow Lake LGA1851
-    { name: 'Intel Core Ultra 5 225F', brand: 'Intel', model: 'CU5-225F', type: ComponentType.CPU, price: 2100000, socket: 'LGA1851', tdp: 65 },
-    { name: 'Intel Core Ultra 5 225', brand: 'Intel', model: 'CU5-225', type: ComponentType.CPU, price: 2300000, socket: 'LGA1851', tdp: 65 },
-    { name: 'Intel Core Ultra 5 245K', brand: 'Intel', model: 'CU5-245K', type: ComponentType.CPU, price: 3900000, socket: 'LGA1851', tdp: 125 },
-    { name: 'Intel Core Ultra 5 245KF', brand: 'Intel', model: 'CU5-245KF', type: ComponentType.CPU, price: 3700000, socket: 'LGA1851', tdp: 125 },
-    { name: 'Intel Core Ultra 7 265K', brand: 'Intel', model: 'CU7-265K', type: ComponentType.CPU, price: 5200000, socket: 'LGA1851', tdp: 125 },
-    { name: 'Intel Core Ultra 7 265KF', brand: 'Intel', model: 'CU7-265KF', type: ComponentType.CPU, price: 5000000, socket: 'LGA1851', tdp: 125 },
-    { name: 'Intel Core Ultra 9 285K', brand: 'Intel', model: 'CU9-285K', type: ComponentType.CPU, price: 7800000, socket: 'LGA1851', tdp: 125 },
+    {
+      name: 'Intel Core Ultra 5 225F',
+      brand: 'Intel',
+      model: 'CU5-225F',
+      type: ComponentType.CPU,
+      price: 2100000,
+      socket: 'LGA1851',
+      tdp: 65,
+    },
+    {
+      name: 'Intel Core Ultra 5 225',
+      brand: 'Intel',
+      model: 'CU5-225',
+      type: ComponentType.CPU,
+      price: 2300000,
+      socket: 'LGA1851',
+      tdp: 65,
+    },
+    {
+      name: 'Intel Core Ultra 5 245K',
+      brand: 'Intel',
+      model: 'CU5-245K',
+      type: ComponentType.CPU,
+      price: 3900000,
+      socket: 'LGA1851',
+      tdp: 125,
+    },
+    {
+      name: 'Intel Core Ultra 5 245KF',
+      brand: 'Intel',
+      model: 'CU5-245KF',
+      type: ComponentType.CPU,
+      price: 3700000,
+      socket: 'LGA1851',
+      tdp: 125,
+    },
+    {
+      name: 'Intel Core Ultra 7 265K',
+      brand: 'Intel',
+      model: 'CU7-265K',
+      type: ComponentType.CPU,
+      price: 5200000,
+      socket: 'LGA1851',
+      tdp: 125,
+    },
+    {
+      name: 'Intel Core Ultra 7 265KF',
+      brand: 'Intel',
+      model: 'CU7-265KF',
+      type: ComponentType.CPU,
+      price: 5000000,
+      socket: 'LGA1851',
+      tdp: 125,
+    },
+    {
+      name: 'Intel Core Ultra 9 285K',
+      brand: 'Intel',
+      model: 'CU9-285K',
+      type: ComponentType.CPU,
+      price: 7800000,
+      socket: 'LGA1851',
+      tdp: 125,
+    },
     // AMD AM4
-    { name: 'AMD Ryzen 3 3200G', brand: 'AMD', model: 'R3-3200G', type: ComponentType.CPU, price: 1150000, socket: 'AM4', tdp: 65 },
-    { name: 'AMD Ryzen 5 4500', brand: 'AMD', model: 'R5-4500', type: ComponentType.CPU, price: 1100000, socket: 'AM4', tdp: 65 },
-    { name: 'AMD Ryzen 5 5600', brand: 'AMD', model: 'R5-5600', type: ComponentType.CPU, price: 1850000, socket: 'AM4', tdp: 65 },
-    { name: 'AMD Ryzen 7 5700X', brand: 'AMD', model: 'R7-5700X', type: ComponentType.CPU, price: 2750000, socket: 'AM4', tdp: 65 },
+    {
+      name: 'AMD Ryzen 3 3200G',
+      brand: 'AMD',
+      model: 'R3-3200G',
+      type: ComponentType.CPU,
+      price: 1150000,
+      socket: 'AM4',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 5 4500',
+      brand: 'AMD',
+      model: 'R5-4500',
+      type: ComponentType.CPU,
+      price: 1100000,
+      socket: 'AM4',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 5 5600',
+      brand: 'AMD',
+      model: 'R5-5600',
+      type: ComponentType.CPU,
+      price: 1850000,
+      socket: 'AM4',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 7 5700X',
+      brand: 'AMD',
+      model: 'R7-5700X',
+      type: ComponentType.CPU,
+      price: 2750000,
+      socket: 'AM4',
+      tdp: 65,
+    },
     // AMD AM5
-    { name: 'AMD Ryzen 5 7500F', brand: 'AMD', model: 'R5-7500F', type: ComponentType.CPU, price: 2550000, socket: 'AM5', tdp: 65 },
-    { name: 'AMD Ryzen 7 7800X3D', brand: 'AMD', model: 'R7-7800X3D', type: ComponentType.CPU, price: 6750000, socket: 'AM5', tdp: 120 },
-    { name: 'AMD Ryzen 9 9950X', brand: 'AMD', model: 'R9-9950X', type: ComponentType.CPU, price: 11500000, socket: 'AM5', tdp: 170 },
-    { name: 'AMD Ryzen 5 9600', brand: 'AMD', model: 'R5-9600', type: ComponentType.CPU, price: 2850000, socket: 'AM5', tdp: 65 },
-    { name: 'AMD Ryzen 5 9600X', brand: 'AMD', model: 'R5-9600X', type: ComponentType.CPU, price: 3300000, socket: 'AM5', tdp: 65 },
-    { name: 'AMD Ryzen 7 9700X', brand: 'AMD', model: 'R7-9700X', type: ComponentType.CPU, price: 4600000, socket: 'AM5', tdp: 65 },
-    { name: 'AMD Ryzen 7 9800X3D', brand: 'AMD', model: 'R7-9800X3D', type: ComponentType.CPU, price: 7200000, socket: 'AM5', tdp: 120 },
-    { name: 'AMD Ryzen 9 9900X', brand: 'AMD', model: 'R9-9900X', type: ComponentType.CPU, price: 6500000, socket: 'AM5', tdp: 120 },
+    {
+      name: 'AMD Ryzen 5 7500F',
+      brand: 'AMD',
+      model: 'R5-7500F',
+      type: ComponentType.CPU,
+      price: 2550000,
+      socket: 'AM5',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 7 7800X3D',
+      brand: 'AMD',
+      model: 'R7-7800X3D',
+      type: ComponentType.CPU,
+      price: 6750000,
+      socket: 'AM5',
+      tdp: 120,
+    },
+    {
+      name: 'AMD Ryzen 9 9950X',
+      brand: 'AMD',
+      model: 'R9-9950X',
+      type: ComponentType.CPU,
+      price: 11500000,
+      socket: 'AM5',
+      tdp: 170,
+    },
+    {
+      name: 'AMD Ryzen 5 9600',
+      brand: 'AMD',
+      model: 'R5-9600',
+      type: ComponentType.CPU,
+      price: 2850000,
+      socket: 'AM5',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 5 9600X',
+      brand: 'AMD',
+      model: 'R5-9600X',
+      type: ComponentType.CPU,
+      price: 3300000,
+      socket: 'AM5',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 7 9700X',
+      brand: 'AMD',
+      model: 'R7-9700X',
+      type: ComponentType.CPU,
+      price: 4600000,
+      socket: 'AM5',
+      tdp: 65,
+    },
+    {
+      name: 'AMD Ryzen 7 9800X3D',
+      brand: 'AMD',
+      model: 'R7-9800X3D',
+      type: ComponentType.CPU,
+      price: 7200000,
+      socket: 'AM5',
+      tdp: 120,
+    },
+    {
+      name: 'AMD Ryzen 9 9900X',
+      brand: 'AMD',
+      model: 'R9-9900X',
+      type: ComponentType.CPU,
+      price: 6500000,
+      socket: 'AM5',
+      tdp: 120,
+    },
   ];
   cpus.forEach((c) => add(components, { ...c, specs: {} }));
 
@@ -231,7 +476,11 @@ async function main() {
   }
 
   // ─── GPUs (Real AIB Models) ───
-  interface GpuEntry { chipset: string; price: number; vram: string }
+  interface GpuEntry {
+    chipset: string;
+    price: number;
+    vram: string;
+  }
   const gpuChipsets: GpuEntry[] = [
     { chipset: 'GT 730', price: 850000, vram: '2GB' },
     { chipset: 'GT 1030', price: 1150000, vram: '2GB' },
@@ -326,7 +575,9 @@ async function main() {
     ['ADATA XPG Spectrix D35G 16GB (2x8) DDR4 3600MHz', 'ADATA', 'AX4U36008G18I-DTB', 800000, 'DDR4'],
     ['ADATA XPG Lancer DDR5 32GB (2x16) 6000MHz', 'ADATA', 'AX5U6000C3016G-DCLARBK', 2100000, 'DDR5'],
   ];
-  ramEntries.forEach(([name, brand, model, price, ramType]) => rams.push({ name, brand, model, price, ramType, type: ComponentType.RAM }));
+  ramEntries.forEach(([name, brand, model, price, ramType]) =>
+    rams.push({ name, brand, model, price, ramType, type: ComponentType.RAM }),
+  );
   rams.forEach((r) => add(components, r));
 
   // ─── Storage (Real SKUs) ───
@@ -355,7 +606,9 @@ async function main() {
     ['TeamGroup MP44L 1TB NVMe Gen4', 'Team', 'TM8FP4001T0C101', 1200000],
     ['ADATA Legend 850 1TB NVMe Gen4', 'ADATA', 'ALE850-1TCS', 1450000],
   ];
-  storageEntries.forEach(([name, brand, model, price]) => storages.push({ name, brand, model, price, type: ComponentType.STORAGE }));
+  storageEntries.forEach(([name, brand, model, price]) =>
+    storages.push({ name, brand, model, price, type: ComponentType.STORAGE }),
+  );
   storages.forEach((s) => add(components, s));
 
   // ─── PSU (Real Series) ───
@@ -389,7 +642,9 @@ async function main() {
     ['EVGA 600 BR 600W 80+ Bronze', 'EVGA', '100-BR-0600-K1', 720000, 600],
     ['EVGA SuperNOVA 750 G7 750W 80+ Gold', 'EVGA', '220-G7-0750-X1', 1850000, 750],
   ];
-  psuEntries.forEach(([name, brand, model, price, wattage]) => psus.push({ name, brand, model, price, wattage, type: ComponentType.PSU }));
+  psuEntries.forEach(([name, brand, model, price, wattage]) =>
+    psus.push({ name, brand, model, price, wattage, type: ComponentType.PSU }),
+  );
   psus.forEach((p) => add(components, p));
 
   // ─── Cases (Real Models) ───
@@ -416,7 +671,9 @@ async function main() {
     ['Montech AIR 903 MAX', 'Montech', 'AIR-903-MAX', 950000, 'ATX'],
     ['Montech KING 95 PRO', 'Montech', 'KING-95-PRO', 1650000, 'ATX'],
   ];
-  caseEntries.forEach(([name, brand, model, price, formFactor]) => cases.push({ name, brand, model, price, formFactor, type: ComponentType.CASE }));
+  caseEntries.forEach(([name, brand, model, price, formFactor]) =>
+    cases.push({ name, brand, model, price, formFactor, type: ComponentType.CASE }),
+  );
   cases.forEach((c) => add(components, c));
 
   // ─── Coolers (Real Models) ───
@@ -446,20 +703,58 @@ async function main() {
     ['ID-COOLING SE-214-XT', 'ID-COOLING', 'SE-214-XT', 250000],
     ['ID-COOLING FROSTFLOW X 240 AIO', 'ID-COOLING', 'FROSTFLOW-X-240', 750000],
   ];
-  coolerEntries.forEach(([name, brand, model, price]) => coolers.push({ name, brand, model, price, type: ComponentType.COOLER }));
+  coolerEntries.forEach(([name, brand, model, price]) =>
+    coolers.push({ name, brand, model, price, type: ComponentType.COOLER }),
+  );
   coolers.forEach((c) => add(components, c));
 
   // ─── Peripherals ───
   const monitors: any[] = [
-    { name: 'Samsung Odyssey G3 24" 144Hz', brand: 'Samsung', model: 'LS24AG304', price: 2850000, type: ComponentType.MONITOR },
-    { name: 'Samsung Odyssey G5 27" 165Hz', brand: 'Samsung', model: 'LS27CG550', price: 4200000, type: ComponentType.MONITOR },
-    { name: 'Samsung Odyssey G7 32" 240Hz', brand: 'Samsung', model: 'LC32G75T', price: 7800000, type: ComponentType.MONITOR },
+    {
+      name: 'Samsung Odyssey G3 24" 144Hz',
+      brand: 'Samsung',
+      model: 'LS24AG304',
+      price: 2850000,
+      type: ComponentType.MONITOR,
+    },
+    {
+      name: 'Samsung Odyssey G5 27" 165Hz',
+      brand: 'Samsung',
+      model: 'LS27CG550',
+      price: 4200000,
+      type: ComponentType.MONITOR,
+    },
+    {
+      name: 'Samsung Odyssey G7 32" 240Hz',
+      brand: 'Samsung',
+      model: 'LC32G75T',
+      price: 7800000,
+      type: ComponentType.MONITOR,
+    },
     { name: 'LG 24GN600-B 24" 144Hz', brand: 'LG', model: '24GN600-B', price: 2650000, type: ComponentType.MONITOR },
     { name: 'LG 27GP850-B 27" 165Hz', brand: 'LG', model: '27GP850-B', price: 5200000, type: ComponentType.MONITOR },
-    { name: 'ASUS TUF VG249Q3A 24" 180Hz', brand: 'ASUS', model: 'VG249Q3A', price: 2950000, type: ComponentType.MONITOR },
-    { name: 'ASUS TUF VG27AQ3A 27" 180Hz', brand: 'ASUS', model: 'VG27AQ3A', price: 4500000, type: ComponentType.MONITOR },
+    {
+      name: 'ASUS TUF VG249Q3A 24" 180Hz',
+      brand: 'ASUS',
+      model: 'VG249Q3A',
+      price: 2950000,
+      type: ComponentType.MONITOR,
+    },
+    {
+      name: 'ASUS TUF VG27AQ3A 27" 180Hz',
+      brand: 'ASUS',
+      model: 'VG27AQ3A',
+      price: 4500000,
+      type: ComponentType.MONITOR,
+    },
     { name: 'MSI G244F E2 24" 170Hz', brand: 'MSI', model: 'G244F-E2', price: 2500000, type: ComponentType.MONITOR },
-    { name: 'MSI G274QPF-QD 27" 170Hz', brand: 'MSI', model: 'G274QPF-QD', price: 4800000, type: ComponentType.MONITOR },
+    {
+      name: 'MSI G274QPF-QD 27" 170Hz',
+      brand: 'MSI',
+      model: 'G274QPF-QD',
+      price: 4800000,
+      type: ComponentType.MONITOR,
+    },
     { name: 'AOC 24G4X 24" 180Hz', brand: 'AOC', model: '24G4X', price: 2400000, type: ComponentType.MONITOR },
     { name: 'AOC 27G4X 27" 180Hz', brand: 'AOC', model: '27G4X', price: 3500000, type: ComponentType.MONITOR },
   ];
@@ -472,16 +767,40 @@ async function main() {
     { name: 'Royal Kludge RK87', brand: 'Royal Kludge', model: 'RK87', price: 450000, type: ComponentType.KEYBOARD },
     { name: 'Logitech G413 SE', brand: 'Logitech', model: 'G413-SE', price: 750000, type: ComponentType.KEYBOARD },
     { name: 'Logitech G Pro X', brand: 'Logitech', model: 'G-PRO-X', price: 1850000, type: ComponentType.KEYBOARD },
-    { name: 'Razer Huntsman Mini', brand: 'Razer', model: 'RZ03-03390100', price: 1250000, type: ComponentType.KEYBOARD },
-    { name: 'Razer BlackWidow V4', brand: 'Razer', model: 'RZ03-04670200', price: 1950000, type: ComponentType.KEYBOARD },
+    {
+      name: 'Razer Huntsman Mini',
+      brand: 'Razer',
+      model: 'RZ03-03390100',
+      price: 1250000,
+      type: ComponentType.KEYBOARD,
+    },
+    {
+      name: 'Razer BlackWidow V4',
+      brand: 'Razer',
+      model: 'RZ03-04670200',
+      price: 1950000,
+      type: ComponentType.KEYBOARD,
+    },
   ];
   keyboards.forEach((k) => add(components, k));
 
   const mice: any[] = [
     { name: 'Logitech G102 Lightsync', brand: 'Logitech', model: 'G102', price: 250000, type: ComponentType.MOUSE },
     { name: 'Logitech G304 Lightspeed', brand: 'Logitech', model: 'G304', price: 450000, type: ComponentType.MOUSE },
-    { name: 'Logitech G Pro X Superlight', brand: 'Logitech', model: 'G-PRO-X-SL', price: 1850000, type: ComponentType.MOUSE },
-    { name: 'Razer DeathAdder Essential', brand: 'Razer', model: 'RZ01-03850100', price: 350000, type: ComponentType.MOUSE },
+    {
+      name: 'Logitech G Pro X Superlight',
+      brand: 'Logitech',
+      model: 'G-PRO-X-SL',
+      price: 1850000,
+      type: ComponentType.MOUSE,
+    },
+    {
+      name: 'Razer DeathAdder Essential',
+      brand: 'Razer',
+      model: 'RZ01-03850100',
+      price: 350000,
+      type: ComponentType.MOUSE,
+    },
     { name: 'Razer Viper Mini', brand: 'Razer', model: 'RZ01-03450100', price: 380000, type: ComponentType.MOUSE },
     { name: 'Razer Basilisk V3', brand: 'Razer', model: 'RZ01-04000100', price: 950000, type: ComponentType.MOUSE },
     { name: 'Pulsar X2 Mini', brand: 'Pulsar', model: 'X2-MINI', price: 850000, type: ComponentType.MOUSE },
@@ -493,9 +812,27 @@ async function main() {
     { name: 'Logitech G335', brand: 'Logitech', model: 'G335', price: 550000, type: ComponentType.HEADSET },
     { name: 'Logitech G Pro X', brand: 'Logitech', model: 'G-PRO-X', price: 1550000, type: ComponentType.HEADSET },
     { name: 'Razer Kraken X', brand: 'Razer', model: 'RZ04-02980100', price: 450000, type: ComponentType.HEADSET },
-    { name: 'Razer BlackShark V2 X', brand: 'Razer', model: 'RZ04-04570100', price: 650000, type: ComponentType.HEADSET },
-    { name: 'SteelSeries Arctis 3', brand: 'SteelSeries', model: 'ARCTIS-3', price: 750000, type: ComponentType.HEADSET },
-    { name: 'Corsair HS55 Surround', brand: 'Corsair', model: 'CA-9011244', price: 650000, type: ComponentType.HEADSET },
+    {
+      name: 'Razer BlackShark V2 X',
+      brand: 'Razer',
+      model: 'RZ04-04570100',
+      price: 650000,
+      type: ComponentType.HEADSET,
+    },
+    {
+      name: 'SteelSeries Arctis 3',
+      brand: 'SteelSeries',
+      model: 'ARCTIS-3',
+      price: 750000,
+      type: ComponentType.HEADSET,
+    },
+    {
+      name: 'Corsair HS55 Surround',
+      brand: 'Corsair',
+      model: 'CA-9011244',
+      price: 650000,
+      type: ComponentType.HEADSET,
+    },
   ];
   headsets.forEach((h) => add(components, h));
 
@@ -522,5 +859,10 @@ async function main() {
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

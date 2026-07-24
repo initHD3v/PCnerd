@@ -62,7 +62,7 @@ async function findBestScored(
   type: ComponentType,
   targetPrice: number,
   extraWhere = {},
-  context: { cpuSocket?: string; ramType?: string; mode?: ScoringMode } = {},
+  context: { cpuSocket?: string; ramType?: string; mode?: ScoringMode; purpose?: string } = {},
 ) {
   const mode = context.mode || 'balanced';
   const minPrice =
@@ -80,7 +80,7 @@ async function findBestScored(
   let candidates = await prisma.hardwareComponent.findMany({
     where: { type, price: { gte: minPrice, lte: maxPrice }, ...extraWhere },
     orderBy: { price: 'asc' },
-    take: 30,
+    take: 100,
   });
 
   if (candidates.length === 0) {
@@ -113,6 +113,11 @@ async function findBestScored(
     if (cpuBench) {
       performanceScore = cpuBench.passmarkSingle / 5000;
       benchmarkPerPrice = cpuBench.passmarkSingle / Math.max(c.price, 1);
+      // Penalize F-suffix CPUs for Office builds (no iGPU)
+      if (context.purpose === 'Office' && /(KF|F)$/.test(c.name)) {
+        performanceScore *= 0.3;
+        compatibility *= 0.2;
+      }
     } else if (gpuBench) {
       const avgFps = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
       performanceScore = avgFps / 200;
@@ -276,14 +281,13 @@ async function generateSingleBuild(
   mode: ScoringMode = 'balanced',
   skipNarrative?: boolean,
 ): Promise<BuildResult> {
-  const distribution = getExpertDistribution(request.budget, request.purpose, request.includePeripheral);
+  const distribution = getExpertDistribution(request.budget, request.purpose, request.includePeripheral, request.text);
   const build: Record<string, HardwareComponent | null> = {};
 
-  const ctx = { mode };
+  const ctx = { mode, purpose: request.purpose };
 
-  const brandFilter: Record<string, string> = request.platform === 'intel' ? { brand: 'Intel' }
-    : request.platform === 'amd' ? { brand: 'AMD' }
-    : {};
+  const brandFilter: Record<string, string> =
+    request.platform === 'intel' ? { brand: 'Intel' } : request.platform === 'amd' ? { brand: 'AMD' } : {};
 
   const cpuExtraWhere = brandFilter;
   build.CPU = await findBestScored(ComponentType.CPU, request.budget * distribution.CPU, cpuExtraWhere, ctx);
@@ -331,6 +335,50 @@ async function generateSingleBuild(
     }
   }
 
+  // Insight 1: Office — last resort GPU for display output
+  if (request.purpose === 'Office' && build.CPU && !build.GPU) {
+    const stillHasIGpu = !/(KF|F)$/.test(build.CPU.name || '');
+    if (!stillHasIGpu) {
+      const cheapGpu = await prisma.hardwareComponent.findFirst({
+        where: { type: 'GPU', price: { lte: 900000 } },
+        orderBy: { price: 'asc' },
+      });
+      if (cheapGpu) build.GPU = cheapGpu;
+    }
+  }
+
+  // Insight 2: Coding — ensure minimum 32GB RAM
+  if (request.purpose === 'Coding' && build.RAM) {
+    const ramGb = parseInt((build.RAM.name || '').match(/(\d+)GB/)?.[1] || '0');
+    if (ramGb < 32) {
+      const biggerRam = await prisma.hardwareComponent.findFirst({
+        where: {
+          type: 'RAM',
+          price: { gte: build.RAM.price * 1.2, lte: build.RAM.price * 3 },
+          name: { contains: '32GB' },
+        },
+        orderBy: { price: 'asc' },
+      });
+      if (biggerRam) build.RAM = biggerRam;
+    }
+  }
+
+  // Insight 5: Streaming — prefer NVIDIA GPU (NVENC)
+  if (request.purpose === 'Streaming' && build.GPU) {
+    const isNvidia = /RTX|GTX|GT |TITAN|Quadro/.test(build.GPU.name || '');
+    if (!isNvidia) {
+      const nvidiaGpu = await prisma.hardwareComponent.findFirst({
+        where: {
+          type: 'GPU',
+          price: { gte: build.GPU.price * 0.8, lte: build.GPU.price * 1.2 },
+          name: { contains: 'RTX' },
+        },
+        orderBy: { price: 'asc' },
+      });
+      if (nvidiaGpu) build.GPU = nvidiaGpu;
+    }
+  }
+
   let totalPrice = Object.values(build).reduce((sum, item) => sum + (item?.price || 0), 0);
 
   if (totalPrice > request.budget) {
@@ -357,15 +405,20 @@ async function generateSingleBuild(
             compatFilter.ramType = build.RAM.ramType;
           }
         }
-        const cheaper = await prisma.hardwareComponent.findFirst({
+        const cheaperList = await prisma.hardwareComponent.findMany({
           where: { type, price: { lt: build[type]!.price }, ...compatFilter },
           orderBy: { price: 'desc' },
+          take: 20,
         });
-        if (cheaper) {
+        for (const cheaper of cheaperList) {
+          if (request.purpose === 'Office' && type === 'CPU' && /(KF|F)$/.test(cheaper.name)) continue;
+          // Don't swap to a significantly different component
+          if (cheaper.price < build[type]!.price * 0.6) continue;
           build[type] = cheaper;
           totalPrice = Object.values(build).reduce((sum, item) => sum + (item?.price || 0), 0);
           if (totalPrice <= request.budget) break;
         }
+        if (totalPrice <= request.budget) break;
       }
     }
   }
@@ -441,6 +494,7 @@ async function generateSingleBuild(
     request.resolution,
     build.CPU?.name || '',
     build.RAM?.name || '',
+    request.purpose,
   );
 
   const narrative = skipNarrative ? null : await generateNarrativeWithLLM(build, request);
@@ -457,7 +511,7 @@ async function generateSingleBuild(
     isOverBudget,
     targetBudget: request.budget,
     resolution: request.resolution || '1080p',
-    lowBudgetAdvice: request.budget < 2500000 ? generateLowBudgetAdvice(request.budget) : null,
+    lowBudgetAdvice: request.budget < 4500000 ? generateLowBudgetAdvice(request.budget) : null,
     distribution,
     tier: pctUsed >= 90 ? 'Max Performance' : pctUsed >= 60 ? 'Mid-Range' : 'Entry',
     analysis:

@@ -22,6 +22,7 @@ export interface RecommendationRequest {
   resolution?: Resolution;
   includePeripheral: boolean;
   platform?: Platform;
+  text?: string;
 }
 
 export interface BudgetSplit {
@@ -51,17 +52,28 @@ export interface ComponentScore {
   reliabilityScore: number;
 }
 
-export const getExpertDistribution = (
-  budget: number,
-  purpose: BuildPurpose,
-  includePeripheral: boolean,
-): BudgetSplit => {
+function detectMultiPurpose(purpose: BuildPurpose, text?: string): BuildPurpose[] {
+  if (!text) return [purpose];
+  const lower = text.toLowerCase();
+  const purposes: BuildPurpose[] = [purpose];
+  if (/maha|siswa|pelajar|mahasiswa|sekolah|kuliah/i.test(lower)) {
+    if (!purposes.includes('Office')) purposes.push('Office');
+    if (!purposes.includes('Coding')) purposes.push('Coding');
+  }
+  if (/multi|all.?in.?one|serba|bisa|beragam|gaming.*edit|edit.*gaming/i.test(lower)) {
+    if (!purposes.includes('Gaming')) purposes.push('Gaming');
+    if (!purposes.includes('Editing')) purposes.push('Editing');
+  }
+  return purposes;
+}
+
+function getBaseDistribution(budget: number, purpose: BuildPurpose): BudgetSplit {
   let splits: BudgetSplit;
 
   if (budget < 6000000) {
     splits = {
-      CPU: 0.35,
-      GPU: 0.18,
+      CPU: 0.28,
+      GPU: 0.25,
       MOTHERBOARD: 0.14,
       RAM: 0.12,
       STORAGE: 0.1,
@@ -72,20 +84,20 @@ export const getExpertDistribution = (
     };
   } else if (budget < 12000000) {
     splits = {
-      CPU: 0.24,
-      GPU: 0.35,
+      CPU: 0.2,
+      GPU: 0.4,
       MOTHERBOARD: 0.11,
       RAM: 0.09,
       STORAGE: 0.08,
       PSU: 0.06,
       CASE: 0.04,
-      COOLER: 0.03,
+      COOLER: 0.02,
       PERIPHERALS: 0.0,
     };
   } else if (budget < 25000000) {
     splits = {
-      CPU: 0.2,
-      GPU: 0.4,
+      CPU: 0.18,
+      GPU: 0.42,
       MOTHERBOARD: 0.1,
       RAM: 0.08,
       STORAGE: 0.08,
@@ -96,8 +108,8 @@ export const getExpertDistribution = (
     };
   } else if (budget < 50000000) {
     splits = {
-      CPU: 0.18,
-      GPU: 0.42,
+      CPU: 0.16,
+      GPU: 0.44,
       MOTHERBOARD: 0.09,
       RAM: 0.08,
       STORAGE: 0.07,
@@ -108,8 +120,8 @@ export const getExpertDistribution = (
     };
   } else {
     splits = {
-      CPU: 0.15,
-      GPU: 0.45,
+      CPU: 0.14,
+      GPU: 0.46,
       MOTHERBOARD: 0.08,
       RAM: 0.08,
       STORAGE: 0.07,
@@ -120,21 +132,67 @@ export const getExpertDistribution = (
     };
   }
 
-  if (purpose === 'Editing' || purpose === 'Rendering') {
+  if (purpose === 'Editing') {
     splits.CPU += 0.08;
     splits.RAM += 0.05;
     splits.STORAGE += 0.02;
     splits.GPU = Math.max(0, splits.GPU - 0.12);
     if (budget > 12000000) splits.COOLER = Math.max(splits.COOLER, 0.05);
+  } else if (purpose === 'Rendering') {
+    splits.CPU += 0.03;
+    splits.RAM += 0.03;
+    splits.STORAGE += 0.01;
+    splits.GPU += 0.05;
+    if (budget > 12000000) splits.COOLER = Math.max(splits.COOLER, 0.06);
   } else if (purpose === 'Office') {
-    splits.CPU = 0.45;
+    splits.CPU = 0.40;
     splits.GPU = 0.0;
-    splits.MOTHERBOARD = 0.14;
-    splits.RAM = 0.14;
-    splits.STORAGE = 0.1;
+    splits.MOTHERBOARD = 0.13;
+    splits.RAM = 0.18;
+    splits.STORAGE = 0.12;
     splits.PSU = 0.07;
     splits.CASE = 0.05;
     splits.COOLER = 0.0;
+  } else if (purpose === 'Coding') {
+    splits.CPU += 0.10;
+    splits.RAM += 0.08;
+    splits.STORAGE += 0.03;
+    splits.GPU = Math.max(0, splits.GPU - 0.15);
+    if (budget > 12000000) splits.RAM = Math.max(splits.RAM, 0.18);
+  } else if (purpose === 'Streaming') {
+    splits.CPU -= 0.03;
+    splits.GPU += 0.05;
+    splits.RAM += 0.02;
+  }
+
+  return splits;
+}
+
+export const getExpertDistribution = (
+  budget: number,
+  purpose: BuildPurpose,
+  includePeripheral: boolean,
+  text?: string,
+): BudgetSplit => {
+  let splits = getBaseDistribution(budget, purpose);
+  const multiPurposes = detectMultiPurpose(purpose, text);
+
+  if (multiPurposes.length > 1) {
+    const blended: BudgetSplit = { CPU: 0, GPU: 0, MOTHERBOARD: 0, RAM: 0, STORAGE: 0, PSU: 0, CASE: 0, COOLER: 0, PERIPHERALS: 0 };
+    const seen = new Set<string>();
+    for (const mp of multiPurposes) {
+      const key = `${budget}-${mp}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const tmp = getBaseDistribution(budget, mp);
+      for (const k of Object.keys(blended) as (keyof BudgetSplit)[]) {
+        blended[k] += tmp[k];
+      }
+    }
+    const count = seen.size;
+    for (const k of Object.keys(blended) as (keyof BudgetSplit)[]) {
+      splits[k] = blended[k] / count;
+    }
   }
 
   if (includePeripheral) {
@@ -163,6 +221,7 @@ export const predictPerformance = (
   resolution?: string,
   cpuName?: string,
   ramName?: string,
+  purpose?: BuildPurpose,
 ): PerformanceEstimate[] => {
   const estimates: PerformanceEstimate[] = [];
 
@@ -178,7 +237,9 @@ export const predictPerformance = (
     { key: '4K', label: '4K' },
   ];
 
-  if (gpuBench) {
+  const isProductivity = purpose === 'Office' || purpose === 'Coding';
+
+  if (!isProductivity && gpuBench) {
     let cpuMultiplier = 1.0;
     if (cpuBench) {
       const gpuAvgFps = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
@@ -223,7 +284,7 @@ export const predictPerformance = (
         level: ramImpact.gamingFpsMultiplier >= 1.05 ? 'High' : ramImpact.gamingFpsMultiplier >= 0.95 ? 'Mid' : 'Entry',
       });
     }
-  } else {
+  } else if (!isProductivity) {
     for (const res of resolutions) {
       const fallback = estimateFpsFromPrice(gpuPrice);
       const aaaFps = parseInt(fallback.aaa);
@@ -244,6 +305,46 @@ export const predictPerformance = (
         level: levelAAA === 'High' ? 'Mid' : levelAAA,
       });
     }
+  } else {
+    if (purpose === 'Office') {
+      if (cpuBench) {
+        estimates.push({
+          category: 'Office (Multitasking)',
+          fps: `CPU Multi: ${cpuBench.passmarkMulti}`,
+          level: cpuBench.passmarkMulti >= 15000 ? 'Ultra' : cpuBench.passmarkMulti >= 8000 ? 'High' : cpuBench.passmarkMulti >= 4000 ? 'Mid' : 'Entry',
+        });
+        estimates.push({
+          category: 'Office (Single Task)',
+          fps: `CPU Single: ${cpuBench.passmarkSingle}`,
+          level: cpuBench.passmarkSingle >= 3000 ? 'Ultra' : cpuBench.passmarkSingle >= 2000 ? 'High' : cpuBench.passmarkSingle >= 1200 ? 'Mid' : 'Entry',
+        });
+      }
+      estimates.push({
+        category: 'RAM & Storage',
+        fps: `RAM: ${ramImpact?.speed || 'N/A'} | iGPU terintegrasi`,
+        level: ramImpact ? 'High' : 'Mid',
+      });
+    } else if (purpose === 'Coding') {
+      if (cpuBench) {
+        estimates.push({
+          category: 'CPU Multi (Compile)',
+          fps: `Multi: ${cpuBench.passmarkMulti}`,
+          level: cpuBench.passmarkMulti >= 20000 ? 'Ultra' : cpuBench.passmarkMulti >= 10000 ? 'High' : cpuBench.passmarkMulti >= 5000 ? 'Mid' : 'Entry',
+        });
+        estimates.push({
+          category: 'CPU Single (IDE)',
+          fps: `Single: ${cpuBench.passmarkSingle}`,
+          level: cpuBench.passmarkSingle >= 3500 ? 'Ultra' : cpuBench.passmarkSingle >= 2500 ? 'High' : cpuBench.passmarkSingle >= 1500 ? 'Mid' : 'Entry',
+        });
+      }
+      if (ramImpact) {
+        estimates.push({
+          category: 'RAM Speed',
+          fps: `${ramImpact.speed || 'N/A'} | Kapasitas besar untuk VM/Container`,
+          level: ramImpact.gamingFpsMultiplier >= 1.05 ? 'High' : 'Mid',
+        });
+      }
+    }
   }
 
   return estimates;
@@ -252,12 +353,12 @@ export const predictPerformance = (
 export const generateLowBudgetAdvice = (budget: number) => {
   return {
     title: 'Waktunya Menghadapi Realitas 🛠️',
-    message: `Budget Rp ${budget.toLocaleString('id-ID')} saat ini belum cukup untuk merakit sebuah PC baru yang layak dan aman. Komponen inti minimal (Motherboard + CPU + PSU) saja biasanya sudah membutuhkan dana sekitar Rp 1.8 - 2.2 Juta.`,
+    message: `Budget Rp ${budget.toLocaleString('id-ID')} saat ini belum cukup untuk merakit PC baru yang layak. Berdasarkan riset pasar Indonesia 2026, budget minimum untuk PC baru yang nyaman adalah Rp 4,5 juta (Office) hingga Rp 8 juta (Gaming Entry).`,
     strategies: [
       {
         id: 'save',
         title: 'The Saver (Tabung Lagi)',
-        desc: 'Tambahkan sekitar Rp 1 - 1.5 Juta lagi untuk mendapatkan PC baru kelas entry-level yang stabil.',
+        desc: 'Tambahkan dana untuk mencapai minimum: Rp 4,5jt (Office), Rp 7jt (Coding), atau Rp 8jt (Gaming Entry).',
         icon: 'Wallet',
       },
       {
@@ -273,7 +374,7 @@ export const generateLowBudgetAdvice = (budget: number) => {
         icon: 'Zap',
       },
     ],
-    targetMinimum: 2500000,
+    targetMinimum: 4500000,
   };
 };
 
@@ -342,6 +443,12 @@ export const generateNarrative = (
   } else if (request.purpose === 'Editing') {
     general +=
       'Alokasi budget digeser lebih banyak ke CPU dan RAM untuk mempercepat proses rendering dan multitasking.';
+  } else if (request.purpose === 'Office') {
+    general +=
+      'Build ini dioptimalkan untuk produktivitas kantor, sekolah, dan kerja sehari-hari. Fokus pada CPU powerful dan RAM besar untuk multitasking aplikasi perkantoran dan browsing.';
+  } else if (request.purpose === 'Coding') {
+    general +=
+      'Build ini dioptimalkan untuk programming dan development. Prioritas pada CPU multi-core untuk kompilasi cepat, RAM besar untuk container/VM, dan storage cepat untuk loading project.';
   }
 
   if (isUpgrade) {

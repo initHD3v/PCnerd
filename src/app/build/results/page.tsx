@@ -155,6 +155,7 @@ export default function BuildResults() {
       activeBuild.resolution,
       build.CPU?.name || '',
       build.RAM?.name || '',
+      requestData?.purpose,
     );
     const totalTdp = (build.CPU?.tdp || 0) + (build.GPU ? estimateGpuTdp(build.GPU) : 0);
     const psuWattage = build.PSU?.wattage || 0;
@@ -458,7 +459,7 @@ export default function BuildResults() {
                 <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
                   <Zap className="w-4 h-4 text-black" />
                 </div>
-                <span className="font-bold text-sm">PCnerd</span>
+                <Link href="/" className="font-bold text-sm hover:text-primary transition-colors">PCnerd</Link>
               </div>
             </div>
 
@@ -702,10 +703,49 @@ export default function BuildResults() {
                 <TrendingUp className="w-5 h-5 text-primary" /> Estimasi Performa
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {['GAME', 'Video Rendering', 'Rendering 3D'].map((group) => {
+                {['GAME', 'Video Rendering', 'Rendering 3D', 'Office', 'Coding'].map((group) => {
+                  const items = performance.filter((p: any) => p.category.startsWith(group));
+                  if (items.length === 0) return null;
+
+                  if (group === 'Office' || group === 'Coding') {
+                    const vals = items.map((p: any) => {
+                      const n = parseInt(p.fps.replace(/[^0-9]/g, ''));
+                      return isNaN(n) ? 0 : n;
+                    });
+                    const bestVal = Math.max(...vals);
+                    const groupLevel = bestVal >= 15000 ? 'Ultra' : bestVal >= 5000 ? 'High' : bestVal >= 1500 ? 'Mid' : 'Entry';
+                    const borderColor = groupLevel === 'Ultra' ? 'border-purple-500/30' : groupLevel === 'High' ? 'border-emerald-500/30' : groupLevel === 'Mid' ? 'border-amber-500/30' : 'border-red-500/30';
+                    const headerColor = groupLevel === 'Ultra' ? 'text-purple-500' : groupLevel === 'High' ? 'text-emerald-500' : groupLevel === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                    return (
+                      <div key={group} className={`rounded-xl border ${borderColor} bg-white/[0.02] overflow-hidden`}>
+                        <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between`}>
+                          <span className="text-xs font-black uppercase tracking-wider">{group === 'Office' ? 'Kantor / Sekolah' : 'Coding / Programming'}</span>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full bg-white/5 ${headerColor}`}>{groupLevel}</span>
+                        </div>
+                        <div className="divide-y divide-white/5">
+                          {items.map((perf: any, idx: number) => {
+                            const label = perf.category.replace(/^(Office|Coding)\s*/, '').trim();
+                            const levelColor = perf.level === 'Ultra' ? 'text-purple-500' : perf.level === 'High' ? 'text-emerald-500' : perf.level === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                            const barColor = perf.level === 'Ultra' ? 'bg-purple-500' : perf.level === 'High' ? 'bg-emerald-500' : perf.level === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
+                            const barWidth = perf.level === 'Ultra' ? '100%' : perf.level === 'High' ? '70%' : perf.level === 'Mid' ? '45%' : '25%';
+                            return (
+                              <div key={idx} className="px-4 py-3">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-[10px] font-bold opacity-40">{label}</span>
+                                  <span className={`text-sm font-black ${levelColor}`}>{perf.fps}</span>
+                                </div>
+                                <div className="h-1 w-full rounded-full bg-white/5">
+                                  <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: barWidth }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   if (group !== 'GAME') {
-                    const items = performance.filter((p: any) => p.category.startsWith(group));
-                    if (items.length === 0) return null;
                     const fpsValues = items.map((p: any) => parseInt(p.fps));
                     const bestFps = Math.max(...fpsValues);
                     const groupLevel = bestFps >= 100 ? 'Ultra' : bestFps >= 60 ? 'High' : bestFps >= 40 ? 'Mid' : 'Entry';
@@ -722,7 +762,7 @@ export default function BuildResults() {
                             const resMatch = perf.category.match(/\((.+)\)/);
                             const resLabel = resMatch ? resMatch[1] : '';
                             const levelColor = perf.level === 'Ultra' ? 'text-purple-500' : perf.level === 'High' ? 'text-emerald-500' : perf.level === 'Mid' ? 'text-amber-500' : 'text-red-500';
-                            const barColor = perf.level === 'Ultra' ? 'bg-purple-500' : perf.level === 'High' ? 'bg-emerald-500' : perf.level === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
+                            const barColor = perf.level === 'Ultra' ? 'bg-purple-500' : perf.level === 'High' ? 'bg-emerald-500' : perf.level === 'Mid' ? 'text-amber-500' : 'bg-amber-500';
                             const barWidth = perf.level === 'Ultra' ? '100%' : perf.level === 'High' ? '70%' : perf.level === 'Mid' ? '45%' : '25%';
                             return (
                               <div key={idx} className="px-4 py-3">
@@ -741,102 +781,84 @@ export default function BuildResults() {
                     );
                   }
 
-                  const QUALITY_MULT: Record<string, number> = { LOW: 2.0, Medium: 1.5, High: 1.2, Ultra: 1.0 };
-                  const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU?.name) : null;
-                  const cpuBench = build.CPU?.name ? findCpuBenchmark(build.CPU?.name) : null;
-
-                  const calcGameFps = (resKey: string) => {
-                    if (!gpuBench) {
-                      const fallback = estimateFpsFromPrice(build.GPU?.price || 0);
-                      return parseInt(gameType === 'E-Sports' ? fallback.esports : fallback.aaa) * QUALITY_MULT[gameQuality];
-                    }
-                    const baseFps = gameType === 'E-Sports'
-                      ? gpuBench.fpsEsports
-                      : resKey === '4K' ? gpuBench.fps4k : resKey === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
-                    let cpuMult = 1.0;
-                    if (cpuBench) {
-                      const gpuAvg = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
-                      const target = gpuAvg * 100 * 0.6;
-                      if (cpuBench.passmarkSingle < target) cpuMult = Math.max(0.5, cpuBench.passmarkSingle / target);
-                    }
-                    return Math.round(baseFps * cpuMult * QUALITY_MULT[gameQuality]);
-                  };
-
-                  const resolutions = [
-                    { key: '1080p', label: '1080p' },
-                    { key: '1440p', label: '1440p' },
-                    { key: '4K', label: '4K' },
-                  ];
-                  const gameFpsList = resolutions.map((r) => ({ ...r, fps: calcGameFps(r.key) }));
-                  const bestGameFps = Math.max(...gameFpsList.map((r) => r.fps));
-                  const gameLevel = bestGameFps >= 100 ? 'Ultra' : bestGameFps >= 60 ? 'High' : bestGameFps >= 40 ? 'Mid' : 'Entry';
-                  const gBorderColor = gameLevel === 'Ultra' ? 'border-purple-500/30' : gameLevel === 'High' ? 'border-emerald-500/30' : gameLevel === 'Mid' ? 'border-amber-500/30' : 'border-red-500/30';
-                  const gHeaderColor = gameLevel === 'Ultra' ? 'text-purple-500' : gameLevel === 'High' ? 'text-emerald-500' : gameLevel === 'Mid' ? 'text-amber-500' : 'text-red-500';
-                  const gBarColor = gameLevel === 'Ultra' ? 'bg-purple-500' : gameLevel === 'High' ? 'bg-emerald-500' : gameLevel === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
-
-                  const qualities = ['LOW', 'Medium', 'High', 'Ultra'] as const;
-                  const types = ['AAA Games', 'E-Sports'] as const;
+                  const isProductivityBuild = requestData?.purpose === 'Office' || requestData?.purpose === 'Coding';
 
                   return (
-                    <div key={group} className={`rounded-xl border ${gBorderColor} bg-white/[0.02] overflow-hidden`}>
-                      <div className={`px-4 py-3 border-b ${gBorderColor} flex items-center justify-between`}>
-                        <span className="text-xs font-black uppercase tracking-wider">GAME</span>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full bg-white/5 ${gHeaderColor}`}>{gameLevel}</span>
-                      </div>
-
-                      <div className="px-4 pt-3 pb-2 space-y-2">
-                        <div className="flex gap-1">
-                          {qualities.map((q) => (
-                            <button
-                              key={q}
-                              onClick={() => setGameQuality(q)}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${
-                                gameQuality === q
-                                  ? 'bg-primary text-black shadow-sm'
-                                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                              }`}
-                            >
-                              {q}
-                            </button>
-                          ))}
+                    <div key={group} className={`rounded-xl border ${isProductivityBuild ? 'border-white/10' : ''} bg-white/[0.02] overflow-hidden`}>
+                      {isProductivityBuild ? (
+                        <div className="px-4 py-3 text-center text-[10px] opacity-40">
+                          Game FPS tidak relevan untuk build {requestData?.purpose === 'Office' ? 'kantor' : 'coding'}.
+                          Fokus pada performa komputasi di panel sebelah.
                         </div>
-                        <div className="flex gap-1">
-                          {types.map((t) => (
-                            <button
-                              key={t}
-                              onClick={() => setGameType(t)}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${
-                                gameType === t
-                                  ? 'bg-primary/20 text-primary'
-                                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                              }`}
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="divide-y divide-white/5">
-                        {gameFpsList.map((item, idx) => {
-                          const fps = item.fps;
-                          const level = fps >= 100 ? 'Ultra' : fps >= 60 ? 'High' : fps >= 40 ? 'Mid' : 'Entry';
-                          const levelColor = level === 'Ultra' ? 'text-purple-500' : level === 'High' ? 'text-emerald-500' : level === 'Mid' ? 'text-amber-500' : 'text-red-500';
-                          const barColor = level === 'Ultra' ? 'bg-purple-500' : level === 'High' ? 'bg-emerald-500' : level === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
-                          const barWidth = level === 'Ultra' ? '100%' : level === 'High' ? '70%' : level === 'Mid' ? '45%' : '25%';
-                          return (
-                            <div key={idx} className="px-4 py-3">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[10px] font-bold opacity-40">{item.label}</span>
-                                <span className={`text-sm font-black ${levelColor}`}>{fps} FPS</span>
-                              </div>
-                              <div className="h-1 w-full rounded-full bg-white/5">
-                                <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: barWidth }} />
-                              </div>
+                      ) : (
+                        <>
+                          <div className={`px-4 py-3 border-b flex items-center justify-between`}>
+                            <span className="text-xs font-black uppercase tracking-wider">GAME</span>
+                          </div>
+                          <div className="px-4 pt-3 pb-2 space-y-2">
+                            <div className="flex gap-1">
+                              {(['LOW', 'Medium', 'High', 'Ultra'] as const).map((q) => (
+                                <button
+                                  key={q}
+                                  onClick={() => setGameQuality(q)}
+                                  className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${gameQuality === q ? 'bg-primary text-black shadow-sm' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                >
+                                  {q}
+                                </button>
+                              ))}
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="flex gap-1">
+                              {(['AAA Games', 'E-Sports'] as const).map((t) => (
+                                <button
+                                  key={t}
+                                  onClick={() => setGameType(t)}
+                                  className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${gameType === t ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                >
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="divide-y divide-white/5">
+                            {[1080, 1440, 2160].map((res, idx) => {
+                              const resKey = idx === 0 ? '1080p' : idx === 1 ? '1440p' : '4K';
+                              const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU?.name) : null;
+                              const cpuBench = build.CPU?.name ? findCpuBenchmark(build.CPU?.name) : null;
+                              const QUALITY_MULT: Record<string, number> = { LOW: 2.0, Medium: 1.5, High: 1.2, Ultra: 1.0 };
+                              let fps = 0;
+                              if (gpuBench) {
+                                const baseFps = gameType === 'E-Sports' ? gpuBench.fpsEsports : resKey === '4K' ? gpuBench.fps4k : resKey === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
+                                let cpuMult = 1.0;
+                                if (cpuBench) {
+                                  const gpuAvg = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
+                                  const target = gpuAvg * 100 * 0.6;
+                                  if (cpuBench.passmarkSingle < target) cpuMult = Math.max(0.5, cpuBench.passmarkSingle / target);
+                                }
+                                fps = Math.round(baseFps * cpuMult * QUALITY_MULT[gameQuality]);
+                              } else {
+                                const fallback = estimateFpsFromPrice(build.GPU?.price || 0);
+                                fps = parseInt(gameType === 'E-Sports' ? fallback.esports : fallback.aaa) * QUALITY_MULT[gameQuality];
+                              }
+                              const level = fps >= 100 ? 'Ultra' : fps >= 60 ? 'High' : fps >= 40 ? 'Mid' : 'Entry';
+                              const levelColor = level === 'Ultra' ? 'text-purple-500' : level === 'High' ? 'text-emerald-500' : level === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                              const barColor = level === 'Ultra' ? 'bg-purple-500' : level === 'High' ? 'bg-emerald-500' : level === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
+                              const barWidth = level === 'Ultra' ? '100%' : level === 'High' ? '70%' : level === 'Mid' ? '45%' : '25%';
+                              return (
+                                <div key={resKey} className="px-4 py-3">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-bold opacity-40">{resKey}</span>
+                                    <span className={`text-sm font-black ${levelColor}`}>{fps} FPS</span>
+                                  </div>
+                                  <div className="h-1 w-full rounded-full bg-white/5">
+                                    <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: barWidth }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}

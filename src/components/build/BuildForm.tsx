@@ -34,12 +34,26 @@ const RESOLUTIONS: { id: Resolution; label: string }[] = [
   { id: '4K', label: '4K (Ultra HD)' },
 ];
 
-const PRESET_BUDGETS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100];
+const PRESET_BUDGETS = [5, 8, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100];
+
+const MIN_BUDGET_PER_PURPOSE: Record<BuildPurpose, { min: number; label: string }> = {
+  Office: { min: 4_500_000, label: 'Rp 4,5jt' },
+  Gaming: { min: 8_000_000, label: 'Rp 8jt' },
+  Coding: { min: 7_000_000, label: 'Rp 7jt' },
+  Editing: { min: 10_000_000, label: 'Rp 10jt' },
+  Streaming: { min: 12_000_000, label: 'Rp 12jt' },
+  Rendering: { min: 20_000_000, label: 'Rp 20jt' },
+};
 
 function getAvailableResolutions(budget: number, purpose: BuildPurpose): Resolution[] {
-  if (purpose === 'Office' || purpose === 'Coding') {
+  if (purpose === 'Office') {
     if (budget >= 10000000) return ['1080p', '1440p', '4K'];
     if (budget >= 5000000) return ['1080p', '1440p'];
+    return ['1080p'];
+  }
+  if (purpose === 'Coding') {
+    if (budget >= 15000000) return ['1080p', '1440p', '4K'];
+    if (budget >= 8000000) return ['1080p', '1440p'];
     return ['1080p'];
   }
   if (purpose === 'Editing' || purpose === 'Rendering') {
@@ -207,7 +221,7 @@ export default function BuildForm() {
                 <div className="px-2 pt-2">
                   <input
                     type="range"
-                    min="3000000"
+                    min="4500000"
                     max="100000000"
                     step="500000"
                     value={formData.budget}
@@ -218,9 +232,14 @@ export default function BuildForm() {
                     className="w-full h-2 bg-gray-200 dark:bg-emerald-900/30 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <div className="flex justify-between mt-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                    <span className="dark:text-emerald-500/50">3 Juta</span>
+                    <span className="dark:text-emerald-500/50">4,5 Juta</span>
                     <span className="dark:text-emerald-500/50">100 Juta+</span>
                   </div>
+                </div>
+                <div className={`px-2 ${formData.budget < MIN_BUDGET_PER_PURPOSE[formData.purpose].min ? '' : 'hidden'}`}>
+                  <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                    ⚠ Budget minimum untuk {formData.purpose === 'Office' ? 'Office' : formData.purpose === 'Coding' ? 'Coding / Programming' : formData.purpose === 'Editing' ? 'Video Editing' : formData.purpose === 'Rendering' ? '3D Rendering' : formData.purpose} adalah {MIN_BUDGET_PER_PURPOSE[formData.purpose].label}.
+                  </p>
                 </div>
               </div>
 
@@ -312,33 +331,53 @@ export default function BuildForm() {
               <h2 className="text-2xl font-bold">Preferensi Tambahan</h2>
 
               <div className="space-y-4">
-                <label className="block">
-                  <span className="text-gray-400 text-sm mb-2 block font-medium">Resolusi Target</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {RESOLUTIONS.filter((r) => availableResolutions.includes(r.id)).map((r) => (
-                      <button
-                        key={r.id}
-                        onClick={() => setFormData({ ...formData, resolution: r.id })}
-                        className={`p-3 text-xs font-bold rounded-lg border transition-all ${
-                          formData.resolution === r.id
-                            ? 'bg-primary/10 border-primary text-primary'
-                            : isDarkMode
-                              ? 'bg-black border-white/10 text-gray-500'
-                              : 'bg-gray-50 border-gray-200 text-gray-400 shadow-sm'
-                        }`}
-                      >
-                        {r.label}
-                      </button>
-                    ))}
+                {formData.purpose === 'Office' ? (
+                  <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-black border-white/5' : 'bg-gray-50/50 border-gray-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Monitor className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs font-bold text-gray-400">Resolusi Monitor</span>
+                    </div>
+                    <p className="text-[10px] opacity-50">
+                      Build Office menggunakan 1080p secara default. Resolusi tidak mempengaruhi pemilihan komponen untuk kebutuhan produktivitas.
+                    </p>
                   </div>
-                  <p className={`mt-2 text-[10px] ${availableResolutions.length < 3 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                    {availableResolutions.length === 1
-                      ? 'Budget ini ideal untuk gaming 1080p.'
-                      : availableResolutions.length === 2
-                        ? 'Budget ini mendukung gaming 1080p – 1440p.'
-                        : 'Budget ini mendukung semua resolusi hingga 4K.'}
-                  </p>
-                </label>
+                ) : (
+                  <label className="block">
+                    <span className="text-gray-400 text-sm mb-2 block font-medium">
+                      {formData.purpose === 'Coding' ? 'Resolusi Monitor' : 'Resolusi Target'}
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {RESOLUTIONS.filter((r) => availableResolutions.includes(r.id)).map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => setFormData({ ...formData, resolution: r.id })}
+                          className={`p-3 text-xs font-bold rounded-lg border transition-all ${
+                            formData.resolution === r.id
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : isDarkMode
+                                ? 'bg-black border-white/10 text-gray-500'
+                                : 'bg-gray-50 border-gray-200 text-gray-400 shadow-sm'
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className={`mt-2 text-[10px] ${availableResolutions.length < 3 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                      {formData.purpose === 'Coding'
+                        ? availableResolutions.length === 1
+                          ? 'Resolusi standar untuk coding & programming.'
+                          : availableResolutions.length === 2
+                            ? '1440p memberi lebih banyak ruang kode tanpa scroll horizontal.'
+                            : '4K ideal untuk kode, dokumentasi, dan debugging side-by-side.'
+                        : availableResolutions.length === 1
+                          ? `Budget ini ideal untuk ${formData.purpose === 'Streaming' ? 'streaming' : 'gaming'} 1080p.`
+                          : availableResolutions.length === 2
+                            ? `Budget ini mendukung ${formData.purpose === 'Streaming' ? 'streaming' : 'gaming'} 1080p – 1440p.`
+                            : `Budget ini mendukung semua resolusi hingga 4K.`}
+                    </p>
+                  </label>
+                )}
 
                 <label className="block">
                   <span className="text-gray-400 text-sm mb-2 block font-medium">Platform Prosesor</span>
