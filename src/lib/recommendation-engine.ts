@@ -165,7 +165,6 @@ export const predictPerformance = (
   ramName?: string,
 ): PerformanceEstimate[] => {
   const estimates: PerformanceEstimate[] = [];
-  const res = resolution || '1080p';
 
   const gpuBench = gpuName ? findGpuBenchmark(gpuName) : null;
   const cpuBench = cpuName ? findCpuBenchmark(cpuName) : null;
@@ -173,10 +172,13 @@ export const predictPerformance = (
 
   const ramMultiplier = ramImpact?.gamingFpsMultiplier || 1.0;
 
-  if (gpuBench) {
-    const baseAaa = res === '4K' ? gpuBench.fps4k : res === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
-    const baseEsports = gpuBench.fpsEsports;
+  const resolutions: { key: string; label: string }[] = [
+    { key: '1080p', label: '1080p' },
+    { key: '1440p', label: '1440p' },
+    { key: '4K', label: '4K' },
+  ];
 
+  if (gpuBench) {
     let cpuMultiplier = 1.0;
     if (cpuBench) {
       const gpuAvgFps = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
@@ -186,24 +188,35 @@ export const predictPerformance = (
       }
     }
 
-    const aaaFps = Math.round(baseAaa * cpuMultiplier * ramMultiplier);
-    const esportsFps = Math.round(baseEsports * cpuMultiplier * ramMultiplier);
+    const cpuMultiNorm = cpuBench ? cpuBench.passmarkMulti / 600 : 0;
 
-    const resLabel = res === '4K' ? '4K' : res === '1440p' ? '1440p' : '1080p';
+    for (const res of resolutions) {
+      const baseAaa = res.key === '4K' ? gpuBench.fps4k : res.key === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
 
-    estimates.push({
-      category: `AAA Games (${resLabel})`,
-      fps: `${aaaFps} FPS`,
-      level: pickLevel(aaaFps),
-    });
-    estimates.push({
-      category: `E-Sports (${resLabel})`,
-      fps: `${esportsFps}+ FPS`,
-      level: pickLevel(esportsFps),
-    });
+      const aaaFps = Math.round(baseAaa * cpuMultiplier * ramMultiplier);
+
+      estimates.push({
+        category: `GAME (${res.label})`,
+        fps: `${aaaFps} FPS`,
+        level: pickLevel(aaaFps),
+      });
+
+      const videoScore = Math.round((cpuMultiNorm * 0.5 + baseAaa * 0.5) * ramMultiplier);
+      estimates.push({
+        category: `Video Rendering (${res.label})`,
+        fps: `${videoScore} pts`,
+        level: pickLevel(Math.max(videoScore, 20)),
+      });
+
+      const renderScore = Math.round((baseAaa * 0.7 + cpuMultiNorm * 0.3) * ramMultiplier);
+      estimates.push({
+        category: `Rendering 3D (${res.label})`,
+        fps: `${renderScore} pts`,
+        level: pickLevel(Math.max(renderScore, 20)),
+      });
+    }
 
     if (ramImpact && ramImpact.speed !== 'DDR4-3200') {
-      const baseRamName = ramName || '';
       estimates.push({
         category: `RAM Impact (${ramImpact.speed})`,
         fps: `${Math.round((ramImpact.gamingFpsMultiplier - 1) * 100)}% vs DDR4-3200 baseline`,
@@ -211,18 +224,26 @@ export const predictPerformance = (
       });
     }
   } else {
-    const fallback = estimateFpsFromPrice(gpuPrice);
-    const levelAAA = pickLevel(parseInt(fallback.aaa));
-    estimates.push({
-      category: 'AAA Games (1080p)',
-      fps: `${fallback.aaa} FPS`,
-      level: levelAAA === 'High' ? 'Mid' : levelAAA,
-    });
-    estimates.push({
-      category: 'E-Sports (1080p)',
-      fps: `${fallback.esports} FPS`,
-      level: 'Mid',
-    });
+    for (const res of resolutions) {
+      const fallback = estimateFpsFromPrice(gpuPrice);
+      const aaaFps = parseInt(fallback.aaa);
+      const levelAAA = pickLevel(aaaFps);
+      estimates.push({
+        category: `GAME (${res.label})`,
+        fps: `${fallback.aaa} FPS`,
+        level: levelAAA === 'High' ? 'Mid' : levelAAA,
+      });
+      estimates.push({
+        category: `Video Rendering (${res.label})`,
+        fps: `${fallback.aaa} pts`,
+        level: levelAAA === 'High' ? 'Mid' : levelAAA,
+      });
+      estimates.push({
+        category: `Rendering 3D (${res.label})`,
+        fps: `${fallback.aaa} pts`,
+        level: levelAAA === 'High' ? 'Mid' : levelAAA,
+      });
+    }
   }
 
   return estimates;
@@ -269,9 +290,12 @@ export const generateNarrative = (
   const res = request.resolution || '1080p';
   const bottleneck = analyzeBottleneck(cpuBench, gpuBench, res);
   let gpuFpsText = '';
+  let cpuMultiScore = 0;
   if (gpuBench) {
-    const aaaFps = res === '4K' ? gpuBench.fps4k : res === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
-    gpuFpsText = ` (~${aaaFps} FPS di ${res} untuk AAA games)`;
+    gpuFpsText = ` (1080p: ~${gpuBench.fps1080p} FPS, 1440p: ~${gpuBench.fps1440p} FPS, 4K: ~${gpuBench.fps4k} FPS untuk gaming)`;
+    if (cpuBench) {
+      cpuMultiScore = cpuBench.passmarkMulti;
+    }
   }
 
   let cpuBenchText = '';
@@ -283,6 +307,12 @@ export const generateNarrative = (
 
   if (build.GPU) {
     detailed.GPU = `${build.GPU.name} adalah kunci utama build ini, memberikan kekuatan grafis yang optimal untuk target budget Anda.${gpuFpsText}`;
+    if (cpuMultiScore > 0) {
+      const gpuAvgFps = (gpuBench!.fps1080p + gpuBench!.fps1440p + gpuBench!.fps4k) / 3;
+      const videoScore = Math.round((cpuMultiScore / 600) * 0.5 + gpuAvgFps * 0.5);
+      const renderScore = Math.round(gpuAvgFps * 0.7 + (cpuMultiScore / 600) * 0.3);
+      detailed.GPU += ` Video Rendering: ~${videoScore} pts, 3D Rendering: ~${renderScore} pts di 1080p.`;
+    }
   } else {
     detailed.GPU = 'Menggunakan grafis terintegrasi (iGPU) untuk menghemat budget dan fokus pada performa komputasi.';
   }
@@ -407,16 +437,14 @@ export async function generateNarrativeWithLLM(
     const cpuBench = build.CPU?.name ? findCpuBenchmark(build.CPU.name) : null;
 
     let benchmarkText = '';
-    const res = request.resolution || '1080p';
     if (gpuBench) {
-      const aaaFps = res === '4K' ? gpuBench.fps4k : res === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
-      benchmarkText += `\nGPU Benchmark: ${aaaFps} FPS di ${res} AAA Games, ${gpuBench.fpsEsports} FPS E-Sports.`;
+      benchmarkText += `\nGPU Benchmark (FPS): 1080p AAA=${gpuBench.fps1080p} / E-Sports=${gpuBench.fpsEsports}, 1440p AAA=${gpuBench.fps1440p}, 4K AAA=${gpuBench.fps4k}.`;
     }
     if (cpuBench) {
       benchmarkText += `\nCPU Benchmark: PassMark Single=${cpuBench.passmarkSingle}, Multi=${cpuBench.passmarkMulti}.`;
     }
 
-    const prompt = `Racikan PC untuk ${request.purpose} budget Rp ${request.budget.toLocaleString('id-ID')} di resolusi ${res}:
+    const prompt = `Racikan PC untuk ${request.purpose} budget Rp ${request.budget.toLocaleString('id-ID')}:
 
 ${componentsText}
 ${benchmarkText}

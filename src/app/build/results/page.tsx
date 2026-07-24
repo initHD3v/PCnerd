@@ -30,12 +30,13 @@ import {
   Keyboard,
   Mouse,
   Lightbulb,
+  Printer,
 } from 'lucide-react';
 import Link from 'next/link';
 import { predictPerformance, generateNarrative } from '@/lib/recommendation-engine';
 import { useTheme } from '@/hooks/use-theme';
 import ThemeToggle from '@/components/ThemeToggle';
-import { findCpuBenchmark, findGpuBenchmark, suggestBottleneckFix, analyzeBottleneck } from '@/data/benchmarks';
+import { findCpuBenchmark, findGpuBenchmark, suggestBottleneckFix, analyzeBottleneck, estimateFpsFromPrice } from '@/data/benchmarks';
 
 const TYPE_ICONS: Record<string, any> = {
   CPU: Cpu,
@@ -80,6 +81,8 @@ export default function BuildResults() {
   const [activeTier, setActiveTier] = useState<TierKey>('max');
   const [appliedUpgrades, setAppliedUpgrades] = useState<Record<string, any>>({});
   const [requestData, setRequestData] = useState<any>(null);
+  const [gameQuality, setGameQuality] = useState<'LOW' | 'Medium' | 'High' | 'Ultra'>('Ultra');
+  const [gameType, setGameType] = useState<'AAA Games' | 'E-Sports'>('AAA Games');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -253,9 +256,194 @@ export default function BuildResults() {
     <div
       className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
+      <style>{`
+        @media print {
+          @page { margin: 15mm 12mm; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          .print-section {
+            page-break-inside: avoid;
+            margin-bottom: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            background: white;
+          }
+          .print-header {
+            text-align: center;
+            padding: 24px 0 16px;
+            border-bottom: 2px solid #10b981;
+            margin-bottom: 24px;
+          }
+          .print-header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            color: #111827;
+            margin: 0 0 4px;
+          }
+          .print-header p {
+            font-size: 11px;
+            color: #6b7280;
+            margin: 0;
+          }
+          .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          .print-table th {
+            text-align: left;
+            padding: 6px 8px;
+            background: #f9fafb;
+            color: #374151;
+            font-weight: 700;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .print-table td {
+            padding: 6px 8px;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+          }
+          .print-table td:last-child { text-align: right; font-weight: 700; }
+          .print-table tr:last-child td { border-bottom: none; }
+          .print-total td {
+            border-top: 2px solid #10b981 !important;
+            font-weight: 800 !important;
+            font-size: 13px !important;
+            color: #059669 !important;
+            padding-top: 8px !important;
+          }
+          .print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+          .print-metric { padding: 8px; background: #f9fafb; border-radius: 6px; }
+          .print-metric-label { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #9ca3af; letter-spacing: 0.05em; }
+          .print-metric-value { font-size: 14px; font-weight: 800; color: #111827; }
+          .print-footer {
+            text-align: center;
+            font-size: 9px;
+            color: #9ca3af;
+            margin-top: 32px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+          }
+          .print-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 700;
+            background: #d1fae5;
+            color: #059669;
+          }
+        }
+        .print-only { display: none; }
+      `}</style>
+      {/* ── Print-Optimized Layout ── */}
+      <div className="print-only">
+        <div className="print-header">
+          <h1>PCnerd ID — Build Report</h1>
+          <p>Dibuat pada {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+
+        <div className="print-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: '#111827' }}>
+              {TIER_CONFIG[activeTier].label} Build
+            </h2>
+            <span className="print-badge">{TIER_CONFIG[activeTier].badge}</span>
+          </div>
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40%' }}>Komponen</th>
+                <th style={{ width: '40%' }}>Nama</th>
+                <th style={{ width: '20%' }}>Harga</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(build)
+                .filter(([, p]) => p)
+                .map(([type, part]: [string, any]) => (
+                  <tr key={type}>
+                    <td style={{ fontWeight: 700 }}>{TYPE_LABELS[type] || type}</td>
+                    <td style={{ color: '#6b7280' }}>{part.name}</td>
+                    <td>Rp {part.price.toLocaleString('id-ID')}</td>
+                  </tr>
+                ))}
+              <tr className="print-total">
+                <td colSpan={2} style={{ textAlign: 'right' }}>Total</td>
+                <td>Rp {totalPrice.toLocaleString('id-ID')}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8, textAlign: 'right' }}>
+            Budget: Rp {targetBudget.toLocaleString('id-ID')} ·{' '}
+            {totalPrice > targetBudget ? 'Over budget' : `${Math.round((totalPrice / targetBudget) * 100)}% terpakai`}
+          </div>
+        </div>
+
+        <div className="print-section">
+          <h3 style={{ fontSize: 13, fontWeight: 800, margin: '0 0 12px', color: '#111827' }}>
+            Estimasi Performa
+          </h3>
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th style={{ width: '50%' }}>Kategori</th>
+                <th style={{ width: '30%' }}>FPS</th>
+                <th style={{ width: '20%' }}>Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              {performance.map((perf: any, idx: number) => (
+                <tr key={idx}>
+                  <td style={{ fontWeight: 600 }}>{perf.category}</td>
+                  <td style={{ fontWeight: 800 }}>{perf.fps}</td>
+                  <td>
+                    <span className="print-badge">{perf.level}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="print-section">
+          <h3 style={{ fontSize: 13, fontWeight: 800, margin: '0 0 12px', color: '#111827' }}>
+            Technical Overview
+          </h3>
+          <div className="print-grid">
+            <div className="print-metric">
+              <div className="print-metric-label">Total TDP</div>
+              <div className="print-metric-value">{technical.totalTdp}W</div>
+            </div>
+            <div className="print-metric">
+              <div className="print-metric-label">PSU</div>
+              <div className="print-metric-value">{technical.psuWattage}W</div>
+            </div>
+            <div className="print-metric">
+              <div className="print-metric-label">Bottleneck</div>
+              <div className="print-metric-value" style={{ fontSize: 11 }}>{technical.bottleneckStatus || 'Seimbang'}</div>
+            </div>
+            <div className="print-metric">
+              <div className="print-metric-label">Performa Tier</div>
+              <div className="print-metric-value">
+                {build.GPU
+                  ? totalPrice > 25000000 ? 'High-End'
+                    : totalPrice > 12000000 ? 'Mid' : 'Entry'
+                  : 'Office'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="print-footer">
+          PCnerd ID — AI PC Builder Indonesia · {new Date().toLocaleDateString('id-ID')}
+        </div>
+      </div>
+
       {/* ── Sticky Header ── */}
       <header
-        className={`border-b sticky top-0 z-40 backdrop-blur-xl transition-colors ${isDark ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
+        className={`no-print border-b sticky top-0 z-40 backdrop-blur-xl transition-colors ${isDark ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="h-16 flex items-center justify-between gap-4">
@@ -274,50 +462,24 @@ export default function BuildResults() {
               </div>
             </div>
 
-            {/* ── Tier Selector ── */}
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-xl p-1">
-              {(Object.entries(TIER_CONFIG) as [TierKey, (typeof TIER_CONFIG)[keyof typeof TIER_CONFIG]][]).map(
-                ([key, cfg]) => {
-                  const Icon = cfg.icon;
-                  const isActive = activeTier === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => handleSwitchTier(key)}
-                      className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        isActive ? 'bg-primary text-black shadow-sm' : 'text-gray-500 hover:text-white'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">{cfg.label}</span>
-                      <span className="sm:hidden">{cfg.label.charAt(0)}</span>
-                      {isActive && data && (
-                        <span className="hidden sm:inline text-[9px] opacity-60 ml-1">{cfg.badge}</span>
-                      )}
-                    </button>
-                  );
-                },
-              )}
-            </div>
-
+            
             <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div
-                  className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-500' : 'text-emerald-500'}`}
-                >
-                  {totalPrice.toLocaleString('id-ID')}
-                </div>
-                <div className={`text-[11px] font-mono ${isOverBudget ? 'text-red-400' : 'text-gray-500'}`}>
-                  dari Rp {targetBudget.toLocaleString('id-ID')}
-                </div>
-              </div>
+              <motion.button
+                whileTap={{ scale: 0.9, rotate: -15 }}
+                onClick={() => window.print()}
+                className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 print:hidden ${isDark ? 'bg-white/5 hover:bg-white/10 text-primary' : 'bg-gray-100 hover:bg-gray-200 text-primary shadow-inner'}`}
+                title="Export PDF"
+              >
+                <Printer className="w-5 h-5" />
+                <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isDark ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-gray-400'}`} />
+              </motion.button>
               <div className={`h-8 w-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
               <ThemeToggle />
             </div>
           </div>
 
           {/* Budget bar */}
-          <div className={`h-0.5 w-full ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+          <div className={`h-0.5 w-full no-print ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min((totalPrice / targetBudget) * 100, 100)}%` }}
@@ -329,7 +491,7 @@ export default function BuildResults() {
 
       {/* ── Low Budget Advice ── */}
       {lowBudgetAdvice && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 no-print">
           <div
             className={`p-6 rounded-2xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}
           >
@@ -357,10 +519,38 @@ export default function BuildResults() {
       )}
 
       {/* ── Main Grid ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 no-print">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* ════ LEFT COLUMN ════ */}
           <div className="lg:col-span-8 space-y-6">
+            {/* ── Tier Selector ── */}
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-xl p-1">
+                {(Object.entries(TIER_CONFIG) as [TierKey, (typeof TIER_CONFIG)[keyof typeof TIER_CONFIG]][]).map(
+                  ([key, cfg]) => {
+                    const Icon = cfg.icon;
+                    const isActive = activeTier === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleSwitchTier(key)}
+                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          isActive ? 'bg-primary text-black shadow-sm' : 'text-gray-500 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{cfg.label}</span>
+                        <span className="sm:hidden">{cfg.label.charAt(0)}</span>
+                        {isActive && data && (
+                          <span className="hidden sm:inline text-[9px] opacity-60 ml-1">{cfg.badge}</span>
+                        )}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+
             {/* ── Components Section ── */}
             <section>
               <div className="flex items-center justify-between mb-4">
@@ -452,9 +642,57 @@ export default function BuildResults() {
                             </div>
                           </div>
                         </div>
+                        <a
+                          href={`https://www.google.com/search?q=${encodeURIComponent(part.name + ' harga Indonesia')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Lihat detail"
+                          className="absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center opacity-20 hover:opacity-100 hover:bg-white/10 transition-all"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                            <path fill="#EA4335" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#34A853" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                          </svg>
+                        </a>
                       </motion.div>
                     );
                   })}
+              </div>
+            </section>
+
+            {/* ── Budget Summary ── */}
+            <section className="section-card">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOverBudget ? 'bg-red-500/10' : 'bg-emerald-500/10'}`}>
+                    <Wallet className={`w-5 h-5 ${isOverBudget ? 'text-red-500' : 'text-emerald-500'}`} />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider opacity-40">Total Biaya</div>
+                    <div className={`text-xl font-black ${isOverBudget ? 'text-red-500' : 'text-emerald-500'}`}>
+                      Rp {totalPrice.toLocaleString('id-ID')}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold uppercase tracking-wider opacity-40">Budget</div>
+                  <div className="text-lg font-bold">Rp {targetBudget.toLocaleString('id-ID')}</div>
+                </div>
+                <div className="hidden sm:flex items-center gap-2">
+                  <div className={`text-xs font-black px-3 py-1.5 rounded-lg ${isOverBudget ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    {isOverBudget ? `− Rp ${(totalPrice - targetBudget).toLocaleString('id-ID')}` : `${Math.round((totalPrice / targetBudget) * 100)}%`}
+                  </div>
+                </div>
+              </div>
+              <div className={`mt-3 h-2 w-full rounded-full ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min((totalPrice / targetBudget) * 100, 100)}%` }}
+                  className={`h-full rounded-full ${isOverBudget ? 'bg-red-500' : 'bg-primary'}`}
+                />
               </div>
             </section>
 
@@ -463,73 +701,145 @@ export default function BuildResults() {
               <h2 className="text-lg font-black flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-primary" /> Estimasi Performa
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {performance.map((perf: any, idx: number) => {
-                  const levelColor =
-                    perf.level === 'Ultra'
-                      ? 'text-purple-500 border-l-purple-500'
-                      : perf.level === 'High'
-                        ? 'text-emerald-500 border-l-emerald-500'
-                        : perf.level === 'Mid'
-                          ? 'text-amber-500 border-l-amber-500'
-                          : 'text-red-500 border-l-red-500';
-                  const bgColor =
-                    perf.level === 'Ultra'
-                      ? 'bg-purple-500/10'
-                      : perf.level === 'High'
-                        ? 'bg-emerald-500/10'
-                        : perf.level === 'Mid'
-                          ? 'bg-amber-500/10'
-                          : 'bg-red-500/10';
-                  return (
-                    <div
-                      key={idx}
-                      className={`section-card border-l-4 ${levelColor}`}
-                    >
-                      <div className="text-[10px] font-bold uppercase tracking-wider opacity-40 mb-1">
-                        {perf.category}
-                      </div>
-                      <div className="flex items-end justify-between">
-                        <div className="text-3xl font-black tracking-tight">{perf.fps}</div>
-                        <div
-                          className={`text-[10px] font-black px-3 py-1 rounded-full ${bgColor} ${levelColor.replace('border-l-', '')}`}
-                        >
-                          {perf.level}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {['GAME', 'Video Rendering', 'Rendering 3D'].map((group) => {
+                  if (group !== 'GAME') {
+                    const items = performance.filter((p: any) => p.category.startsWith(group));
+                    if (items.length === 0) return null;
+                    const fpsValues = items.map((p: any) => parseInt(p.fps));
+                    const bestFps = Math.max(...fpsValues);
+                    const groupLevel = bestFps >= 100 ? 'Ultra' : bestFps >= 60 ? 'High' : bestFps >= 40 ? 'Mid' : 'Entry';
+                    const borderColor = groupLevel === 'Ultra' ? 'border-purple-500/30' : groupLevel === 'High' ? 'border-emerald-500/30' : groupLevel === 'Mid' ? 'border-amber-500/30' : 'border-red-500/30';
+                    const headerColor = groupLevel === 'Ultra' ? 'text-purple-500' : groupLevel === 'High' ? 'text-emerald-500' : groupLevel === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                    return (
+                      <div key={group} className={`rounded-xl border ${borderColor} bg-white/[0.02] overflow-hidden`}>
+                        <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between`}>
+                          <span className="text-xs font-black uppercase tracking-wider">{group}</span>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full bg-white/5 ${headerColor}`}>{groupLevel}</span>
                         </div>
+                        <div className="divide-y divide-white/5">
+                          {items.map((perf: any, idx: number) => {
+                            const resMatch = perf.category.match(/\((.+)\)/);
+                            const resLabel = resMatch ? resMatch[1] : '';
+                            const levelColor = perf.level === 'Ultra' ? 'text-purple-500' : perf.level === 'High' ? 'text-emerald-500' : perf.level === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                            const barColor = perf.level === 'Ultra' ? 'bg-purple-500' : perf.level === 'High' ? 'bg-emerald-500' : perf.level === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
+                            const barWidth = perf.level === 'Ultra' ? '100%' : perf.level === 'High' ? '70%' : perf.level === 'Mid' ? '45%' : '25%';
+                            return (
+                              <div key={idx} className="px-4 py-3">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-[10px] font-bold opacity-40">{resLabel}</span>
+                                  <span className={`text-sm font-black ${levelColor}`}>{perf.fps}</span>
+                                </div>
+                                <div className="h-1 w-full rounded-full bg-white/5">
+                                  <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: barWidth }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const QUALITY_MULT: Record<string, number> = { LOW: 2.0, Medium: 1.5, High: 1.2, Ultra: 1.0 };
+                  const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU?.name) : null;
+                  const cpuBench = build.CPU?.name ? findCpuBenchmark(build.CPU?.name) : null;
+
+                  const calcGameFps = (resKey: string) => {
+                    if (!gpuBench) {
+                      const fallback = estimateFpsFromPrice(build.GPU?.price || 0);
+                      return parseInt(gameType === 'E-Sports' ? fallback.esports : fallback.aaa) * QUALITY_MULT[gameQuality];
+                    }
+                    const baseFps = gameType === 'E-Sports'
+                      ? gpuBench.fpsEsports
+                      : resKey === '4K' ? gpuBench.fps4k : resKey === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
+                    let cpuMult = 1.0;
+                    if (cpuBench) {
+                      const gpuAvg = (gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3;
+                      const target = gpuAvg * 100 * 0.6;
+                      if (cpuBench.passmarkSingle < target) cpuMult = Math.max(0.5, cpuBench.passmarkSingle / target);
+                    }
+                    return Math.round(baseFps * cpuMult * QUALITY_MULT[gameQuality]);
+                  };
+
+                  const resolutions = [
+                    { key: '1080p', label: '1080p' },
+                    { key: '1440p', label: '1440p' },
+                    { key: '4K', label: '4K' },
+                  ];
+                  const gameFpsList = resolutions.map((r) => ({ ...r, fps: calcGameFps(r.key) }));
+                  const bestGameFps = Math.max(...gameFpsList.map((r) => r.fps));
+                  const gameLevel = bestGameFps >= 100 ? 'Ultra' : bestGameFps >= 60 ? 'High' : bestGameFps >= 40 ? 'Mid' : 'Entry';
+                  const gBorderColor = gameLevel === 'Ultra' ? 'border-purple-500/30' : gameLevel === 'High' ? 'border-emerald-500/30' : gameLevel === 'Mid' ? 'border-amber-500/30' : 'border-red-500/30';
+                  const gHeaderColor = gameLevel === 'Ultra' ? 'text-purple-500' : gameLevel === 'High' ? 'text-emerald-500' : gameLevel === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                  const gBarColor = gameLevel === 'Ultra' ? 'bg-purple-500' : gameLevel === 'High' ? 'bg-emerald-500' : gameLevel === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
+
+                  const qualities = ['LOW', 'Medium', 'High', 'Ultra'] as const;
+                  const types = ['AAA Games', 'E-Sports'] as const;
+
+                  return (
+                    <div key={group} className={`rounded-xl border ${gBorderColor} bg-white/[0.02] overflow-hidden`}>
+                      <div className={`px-4 py-3 border-b ${gBorderColor} flex items-center justify-between`}>
+                        <span className="text-xs font-black uppercase tracking-wider">GAME</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full bg-white/5 ${gHeaderColor}`}>{gameLevel}</span>
+                      </div>
+
+                      <div className="px-4 pt-3 pb-2 space-y-2">
+                        <div className="flex gap-1">
+                          {qualities.map((q) => (
+                            <button
+                              key={q}
+                              onClick={() => setGameQuality(q)}
+                              className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${
+                                gameQuality === q
+                                  ? 'bg-primary text-black shadow-sm'
+                                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                              }`}
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-1">
+                          {types.map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => setGameType(t)}
+                              className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${
+                                gameType === t
+                                  ? 'bg-primary/20 text-primary'
+                                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-white/5">
+                        {gameFpsList.map((item, idx) => {
+                          const fps = item.fps;
+                          const level = fps >= 100 ? 'Ultra' : fps >= 60 ? 'High' : fps >= 40 ? 'Mid' : 'Entry';
+                          const levelColor = level === 'Ultra' ? 'text-purple-500' : level === 'High' ? 'text-emerald-500' : level === 'Mid' ? 'text-amber-500' : 'text-red-500';
+                          const barColor = level === 'Ultra' ? 'bg-purple-500' : level === 'High' ? 'bg-emerald-500' : level === 'Mid' ? 'bg-amber-500' : 'bg-red-500';
+                          const barWidth = level === 'Ultra' ? '100%' : level === 'High' ? '70%' : level === 'Mid' ? '45%' : '25%';
+                          return (
+                            <div key={idx} className="px-4 py-3">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] font-bold opacity-40">{item.label}</span>
+                                <span className={`text-sm font-black ${levelColor}`}>{fps} FPS</span>
+                              </div>
+                              <div className="h-1 w-full rounded-full bg-white/5">
+                                <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: barWidth }} />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            </section>
-
-            {/* ── Technical Details ── */}
-            <section
-              className="section-card"
-            >
-              <h3 className="text-sm font-black mb-4 flex items-center gap-2">
-                <Gauge className="w-4 h-4 text-primary" /> Technical Overview
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <Metric label="Total TDP" value={`${technical.totalTdp}W`} />
-                <Metric label="PSU" value={`${technical.psuWattage}W`} status={technical.isPsuSafe ? 'good' : 'warn'} />
-                <Metric
-                  label="Performa Tier"
-                  value={
-                    build.GPU
-                      ? totalPrice > 25000000
-                        ? 'High-End'
-                        : totalPrice > 12000000
-                          ? 'Mid'
-                          : 'Entry'
-                      : 'Office'
-                  }
-                />
-                <Metric
-                  label="Total Biaya"
-                  value={`Rp ${(totalPrice / 1000000).toFixed(1)}jt`}
-                  status={isOverBudget ? 'warn' : 'good'}
-                />
               </div>
             </section>
           </div>
@@ -589,6 +899,40 @@ export default function BuildResults() {
                   </ul>
                 </div>
               )}
+            </section>
+
+            {/* ── Technical Overview ── */}
+            <section className="section-card">
+              <h3 className="text-sm font-black mb-4 flex items-center gap-2">
+                <Gauge className="w-4 h-4 text-primary" /> Technical Overview
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Total TDP</div>
+                  <div className="text-lg font-black mt-1">{technical.totalTdp}<span className="text-xs opacity-40">W</span></div>
+                </div>
+                <div className={`p-3 rounded-xl border ${technical.isPsuSafe ? 'border-white/5 bg-white/[0.03]' : 'border-amber-500/20 bg-amber-500/5'}`}>
+                  <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">PSU</div>
+                  <div className={`text-lg font-black mt-1 ${technical.isPsuSafe ? '' : 'text-amber-500'}`}>
+                    {technical.psuWattage}<span className="text-xs opacity-40">W</span>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Performa</div>
+                  <div className="text-lg font-black mt-1">
+                    {build.GPU
+                      ? totalPrice > 25000000 ? 'High-End'
+                        : totalPrice > 12000000 ? 'Mid' : 'Entry'
+                      : 'Office'}
+                  </div>
+                </div>
+                <div className={`p-3 rounded-xl border ${isOverBudget ? 'border-red-500/20 bg-red-500/5' : 'border-white/5 bg-white/[0.03]'}`}>
+                  <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Total Biaya</div>
+                  <div className={`text-lg font-black mt-1 ${isOverBudget ? 'text-red-500' : ''}`}>
+                    Rp {(totalPrice / 1000000).toFixed(1)}<span className="text-xs opacity-40">jt</span>
+                  </div>
+                </div>
+              </div>
             </section>
 
             {/* ── Bottleneck Analysis ── */}
