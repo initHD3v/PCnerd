@@ -36,6 +36,7 @@ import {
   X,
   Check,
   Database,
+  Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import { predictPerformance, generateNarrative } from '@/lib/recommendation-engine';
@@ -90,6 +91,9 @@ export default function BuildResults() {
   const [selectorOpen, setSelectorOpen] = useState<string | null>(null);
   const [selectorComponents, setSelectorComponents] = useState<any[]>([]);
   const [selectorLoading, setSelectorLoading] = useState(false);
+  const [selectorSearch, setSelectorSearch] = useState('');
+  const [selectorSort, setSelectorSort] = useState('price-asc');
+  const [selectorBrand, setSelectorBrand] = useState('');
   const [llmNarratives, setLlmNarratives] = useState<Record<string, any>>({});
   const [llmLoading, setLlmLoading] = useState(false);
   const [requestData, setRequestData] = useState<any>(null);
@@ -207,6 +211,7 @@ export default function BuildResults() {
   const performance = upgradeState?.performance ?? activeBuild?.performance ?? [];
   const technical = upgradeState?.technical ?? activeBuild?.technical ?? {};
   const templateNarrative = upgradeState?.narrative ?? {};
+  const componentScores: Record<string, any> = activeBuild?.componentScores ?? {};
 
   // LLM narrative: original → cache → fetch
   const originalKey = useMemo(() => {
@@ -215,11 +220,18 @@ export default function BuildResults() {
 
   const currentHash = getBuildHash(build);
   const isOriginalBuild = activeBuild && currentHash === originalKey;
-  const cachedLlm = isOriginalBuild
-    ? (activeBuild?.narrative?.general ? activeBuild.narrative : llmNarratives[originalKey] || {})
+  const originalNarrative = activeBuild?.narrative?.general ? activeBuild.narrative : null;
+  const cachedLlm = isOriginalBuild && originalNarrative
+    ? originalNarrative
     : llmNarratives[currentHash] || {};
 
-  const narrative = cachedLlm?.general ? cachedLlm : templateNarrative;
+  const partialKey = `partial_${currentHash}`;
+  const partialNarrative = llmNarratives[partialKey];
+  const narrative = partialNarrative?.general
+    ? partialNarrative
+    : cachedLlm?.general
+      ? cachedLlm
+      : templateNarrative;
 
   // Fetch LLM narrative when build changes (not original, not cached)
   const prevHashRef = useRef('');
@@ -234,32 +246,96 @@ export default function BuildResults() {
     let cancelled = false;
     queueMicrotask(() => { if (!cancelled) setLlmLoading(true); });
 
+    const narrativeBuild = Object.fromEntries(Object.entries(build).filter(([, p]) => p));
+
     fetch('/api/ai/narrative', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        build: Object.fromEntries(Object.entries(build).filter(([, p]) => p)),
-        request: {
-          budget: activeBuild.targetBudget,
-          purpose: requestData?.purpose || 'Gaming',
-          resolution: activeBuild.resolution || '1080p',
-          includePeripheral: false,
-          platform: requestData?.platform || 'default',
-          text: requestData?.text || '',
-        },
+        build: narrativeBuild,
+        budget: activeBuild.targetBudget,
+        purpose: requestData?.purpose || 'Gaming',
+        resolution: activeBuild.resolution || '1080p',
+        stream: true,
       }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled) return;
-        if (data && (data.general || data.strengths?.length || data.weaknesses?.length)) {
-          setLlmNarratives((prev) => ({ ...prev, [currentHash]: data }));
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
+    }).then(async (res) => {
+      if (cancelled) return;
+      if (!res.ok) { setLlmLoading(false); return; }
+
+      const reader = res.body?.getReader();
+      if (!reader) { setLlmLoading(false); return; }
+
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      // Store a partial narrative entry that streams in
+      const partialKey = `partial_${currentHash}`;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (cancelled) break;
+
+        accumulated += decoder.decode(value, { stream: true });
+
+        // Try to extract partial "general" field for live preview
+        try {
+          const jsonStart = accumulated.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonStr = accumulated.slice(jsonStart);
+            // Try to match "general" value with a regex
+            const generalMatch = jsonStr.match(/"general"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (generalMatch) {
+              const generalVal = generalMatch[1];
+              if (generalVal.length > 10) {
+                setLlmNarratives((prev) => ({
+                  ...prev,
+                  [partialKey]: { general: generalVal + '...', strengths: [], weaknesses: [] },
+                }));
+              }
+            }
+          }
+        } catch {}
+
+        // Reset loading once we start getting data
         if (!cancelled) setLlmLoading(false);
-      });
+      }
+
+      if (cancelled) return;
+
+      // Parse complete JSON
+      const braceStart = accumulated.indexOf('{');
+      const braceEnd = accumulated.lastIndexOf('}');
+      if (braceStart !== -1 && braceEnd > braceStart) {
+        const jsonStr = accumulated.slice(braceStart, braceEnd + 1);
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.general || data.strengths?.length || data.weaknesses?.length) {
+            // Remove partial entry, store final
+            setLlmNarratives((prev) => {
+              const next = { ...prev };
+              delete next[partialKey];
+              next[currentHash] = data;
+              return next;
+            });
+            setLlmLoading(false);
+            return;
+          }
+        } catch {}
+      }
+
+      // Fallback: store accumulated as general text
+      const cleaned = accumulated.replace(/```[\s\S]*?```/g, '').replace(/\{.*\}/s, '').trim();
+      if (cleaned) {
+        setLlmNarratives((prev) => ({
+          ...prev,
+          [currentHash]: { general: cleaned, strengths: [], weaknesses: [] },
+        }));
+      }
+      setLlmLoading(false);
+    }).catch(() => {
+      if (!cancelled) setLlmLoading(false);
+    });
 
     return () => {
       cancelled = true;
@@ -331,6 +407,9 @@ export default function BuildResults() {
         }
       }
     } catch {}
+    setSelectorSearch('');
+    setSelectorBrand('');
+    setSelectorSort('price-asc');
     setSelectorLoading(false);
   }, [activeBuild, upgradeState]);
 
@@ -823,6 +902,52 @@ export default function BuildResults() {
                               )}
                             </div>
 
+                            {componentScores[type] && (() => {
+                              const sc = componentScores[type];
+                              const pct = (sc.totalScore * 100).toFixed(0);
+                              const color = sc.totalScore > 0.7 ? '#22c55e' : sc.totalScore > 0.4 ? '#eab308' : '#ef4444';
+                              const items = [
+                                { label: 'Kompatibilitas', key: 'compatibilityScore', pct: (sc.compatibilityScore * 100).toFixed(0) },
+                                { label: 'Performa', key: 'performanceScore', pct: (sc.performanceScore * 100).toFixed(0) },
+                                { label: 'Value', key: 'valueScore', pct: (sc.valueScore * 100).toFixed(0) },
+                                { label: 'Reliabilitas', key: 'reliabilityScore', pct: (sc.reliabilityScore * 100).toFixed(0) },
+                              ];
+                              return (
+                                <div className="group/score mt-1.5 relative">
+                                  <div className="flex items-center gap-2 cursor-help">
+                                    <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full transition-all"
+                                        style={{ width: `${Math.min(100, Math.max(0, Number(pct)))}%`, background: color }}
+                                      />
+                                    </div>
+                                    <span className="text-[9px] font-bold font-mono" style={{ color }}>
+                                      {pct}
+                                    </span>
+                                  </div>
+                                  <div className="absolute bottom-full left-0 mb-2 w-44 opacity-0 invisible group-hover/score:opacity-100 group-hover/score:visible transition-all duration-200 z-20 pointer-events-none">
+                                    <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg p-2.5 shadow-xl text-[10px] space-y-1.5 border border-white/10">
+                                      <div className="font-black text-[9px] uppercase tracking-wider opacity-60 mb-1.5">Skor Komponen</div>
+                                      {items.map((item) => (
+                                        <div key={item.key} className="flex items-center justify-between gap-2">
+                                          <span className="opacity-70">{item.label}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="w-12 h-1 rounded-full bg-white/10 overflow-hidden">
+                                              <div
+                                                className="h-full rounded-full"
+                                                style={{ width: `${Math.min(100, Math.max(0, Number(item.pct)))}%`, background: color }}
+                                              />
+                                            </div>
+                                            <span className="font-mono font-bold w-6 text-right" style={{ color }}>{item.pct}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {isUpgraded ? (
                               <div className="mt-3 pt-3 border-t border-dashed border-white/10 space-y-1.5">
                                 <button
@@ -1265,76 +1390,161 @@ export default function BuildResults() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
+              <div className="px-4 pt-3 space-y-2 shrink-0">
+                <div className="relative">
+                  <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${isDark ? 'text-white/20' : 'text-gray-400'}`} />
+                  <input
+                    type="text"
+                    value={selectorSearch}
+                    onChange={(e) => setSelectorSearch(e.target.value)}
+                    placeholder="Cari komponen..."
+                    className={`w-full pl-9 pr-3 py-2 rounded-lg text-xs outline-none transition-all ${
+                      isDark
+                        ? 'bg-white/[0.03] border border-white/5 focus:border-primary/30 text-white placeholder:text-white/20'
+                        : 'bg-gray-50 border border-gray-200 focus:border-gray-400 text-gray-900 placeholder:text-gray-400'
+                    }`}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={selectorSort}
+                    onChange={(e) => setSelectorSort(e.target.value)}
+                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold outline-none appearance-none cursor-pointer ${
+                      isDark
+                        ? 'bg-white/[0.03] border border-white/5 text-white'
+                        : 'bg-gray-50 border border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <option value="price-asc">Harga ↑</option>
+                    <option value="price-desc">Harga ↓</option>
+                    <option value="name-asc">Nama A-Z</option>
+                    <option value="name-desc">Nama Z-A</option>
+                  </select>
+                  <select
+                    value={selectorBrand}
+                    onChange={(e) => setSelectorBrand(e.target.value)}
+                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold outline-none appearance-none cursor-pointer ${
+                      isDark
+                        ? 'bg-white/[0.03] border border-white/5 text-white'
+                        : 'bg-gray-50 border border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <option value="">Semua Brand</option>
+                    {[...new Set(selectorComponents.map((c: any) => c.brand).filter(Boolean))].sort().map((b) => (
+                      <option key={b as string} value={b as string}>{b as string}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="flex-1 overflow-y-auto p-4">
                 {selectorLoading ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
-                ) : selectorComponents.length === 0 ? (
-                  <div className="text-center py-20 text-gray-500">
-                    <Database className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">Tidak ada komponen yang kompatibel ditemukan.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {selectorComponents.map((comp: any) => {
-                      const build2 = upgradeState?.build ?? activeBuild?.build ?? {};
-                      const current = build2[selectorOpen];
-                      const isSelected = current?.id === comp.id;
-                      const priceDiff = current ? comp.price - current.price : comp.price;
-                      const Icon = TYPE_ICONS[selectorOpen] || Box;
-                      return (
-                        <button
-                          key={comp.id}
-                          onClick={() => handleSelectComponent(selectorOpen, comp)}
-                          disabled={isSelected}
-                          className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-4 ${
-                            isSelected
-                              ? isDark ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-emerald-400 bg-emerald-50'
-                              : isDark
-                                ? 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                                : 'border-gray-100 bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <Icon className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                              {comp.name}
+                ) : (() => {
+                  let filtered = [...selectorComponents];
+
+                  if (selectorSearch) {
+                    const q = selectorSearch.toLowerCase();
+                    filtered = filtered.filter((c: any) =>
+                      c.name?.toLowerCase().includes(q) ||
+                      c.brand?.toLowerCase().includes(q) ||
+                      c.socket?.toLowerCase().includes(q) ||
+                      c.ramType?.toLowerCase().includes(q)
+                    );
+                  }
+
+                  if (selectorBrand) {
+                    filtered = filtered.filter((c: any) => c.brand === selectorBrand);
+                  }
+
+                  filtered.sort((a: any, b: any) => {
+                    switch (selectorSort) {
+                      case 'price-desc': return b.price - a.price;
+                      case 'name-asc': return (a.name || '').localeCompare(b.name || '');
+                      case 'name-desc': return (b.name || '').localeCompare(a.name || '');
+                      default: return a.price - b.price;
+                    }
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-20 text-gray-500">
+                        <Database className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                        <p className="text-sm">Tidak ada komponen ditemukan.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      {filtered.map((comp: any) => {
+                        const build2 = upgradeState?.build ?? activeBuild?.build ?? {};
+                        const current = build2[selectorOpen];
+                        const isSelected = current?.id === comp.id;
+                        const priceDiff = current ? comp.price - current.price : comp.price;
+                        const Icon = TYPE_ICONS[selectorOpen] || Box;
+                        return (
+                          <button
+                            key={comp.id}
+                            onClick={() => handleSelectComponent(selectorOpen, comp)}
+                            disabled={isSelected}
+                            className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-4 ${
+                              isSelected
+                                ? isDark ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-emerald-400 bg-emerald-50'
+                                : isDark
+                                  ? 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
+                                  : 'border-gray-100 bg-white hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Icon className="w-4 h-4 text-primary" />
                             </div>
-                            <div className="text-[10px] opacity-40 mt-0.5 flex flex-wrap gap-x-3">
-                              <span>{comp.brand}</span>
-                              {comp.socket && <span>{comp.socket}</span>}
-                              {comp.ramType && <span>{comp.ramType}</span>}
-                              {comp.wattage && <span>{comp.wattage}W</span>}
-                              {comp.tdp && <span>{comp.tdp}W TDP</span>}
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                {comp.name}
+                              </div>
+                              <div className="text-[10px] opacity-40 mt-0.5 flex flex-wrap gap-x-3">
+                                <span>{comp.brand}</span>
+                                {comp.socket && <span>{comp.socket}</span>}
+                                {comp.ramType && <span>{comp.ramType}</span>}
+                                {comp.wattage && <span>{comp.wattage}W</span>}
+                                {comp.tdp && <span>{comp.tdp}W TDP</span>}
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className={`text-sm font-black ${isSelected ? 'text-emerald-500' : 'text-primary'}`}>
-                              Rp {comp.price.toLocaleString('id-ID')}
+                            <div className="text-right shrink-0">
+                              <div className={`text-sm font-black ${isSelected ? 'text-emerald-500' : 'text-primary'}`}>
+                                Rp {comp.price.toLocaleString('id-ID')}
+                              </div>
+                              {!isSelected && current && (
+                                <div className={`text-[9px] font-bold ${priceDiff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                  {priceDiff > 0 ? '+' : ''}Rp {priceDiff.toLocaleString('id-ID')}
+                                </div>
+                              )}
                             </div>
-                            {!isSelected && current && (
-                              <div className={`text-[9px] font-bold ${priceDiff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                {priceDiff > 0 ? '+' : ''}Rp {priceDiff.toLocaleString('id-ID')}
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                                <Check className="w-3 h-3 text-white" />
                               </div>
                             )}
-                          </div>
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
               <div className={`px-6 py-3 border-t flex justify-between items-center shrink-0 ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
                 <span className="text-[10px] opacity-40">
-                  {selectorComponents.length} komponen tersedia
+                  {(selectorSearch || selectorBrand ? selectorComponents.filter((c: any) => {
+                    let ok = true;
+                    if (selectorSearch) {
+                      const q = selectorSearch.toLowerCase();
+                      ok = ok && (c.name?.toLowerCase().includes(q) || c.brand?.toLowerCase().includes(q) || c.socket?.toLowerCase().includes(q) || c.ramType?.toLowerCase().includes(q));
+                    }
+                    if (selectorBrand) ok = ok && c.brand === selectorBrand;
+                    return ok;
+                  }).length : selectorComponents.length)} komponen tersedia
                 </span>
                 <button
                   onClick={() => setSelectorOpen(null)}

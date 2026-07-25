@@ -28,9 +28,18 @@ export interface UpgradeOption {
   fpsUplift?: { currentFps: number; newFps: number; upliftPercent: number };
 }
 
+export interface ComponentScoreData {
+  totalScore: number;
+  compatibilityScore: number;
+  performanceScore: number;
+  valueScore: number;
+  reliabilityScore: number;
+}
+
 export interface BuildResult {
   build: Record<string, HardwareComponent | null>;
   originalBuild: Record<string, HardwareComponent | null>;
+  componentScores?: Record<string, ComponentScoreData>;
   totalPrice: number;
   isOverBudget: boolean;
   targetBudget: number;
@@ -152,7 +161,18 @@ async function findBestScored(
     scored.sort((a, b) => b.totalScore - a.totalScore);
   }
 
-  return scored[0]?.component || candidates[0] || null;
+  const best = scored[0];
+  if (!best) return { component: candidates[0] || null, score: null };
+  return {
+    component: best.component,
+    score: {
+      totalScore: best.totalScore,
+      compatibilityScore: best.compatibilityScore,
+      performanceScore: best.performanceScore,
+      valueScore: best.valueScore,
+      reliabilityScore: best.reliabilityScore,
+    },
+  };
 }
 
 async function ensureBalance(
@@ -289,31 +309,51 @@ async function generateSingleBuild(
   const brandFilter: Record<string, string> =
     request.platform === 'intel' ? { brand: 'Intel' } : request.platform === 'amd' ? { brand: 'AMD' } : {};
 
+  const componentScores: Record<string, ComponentScoreData> = {};
+
   const cpuExtraWhere = brandFilter;
-  build.CPU = await findBestScored(ComponentType.CPU, request.budget * distribution.CPU, cpuExtraWhere, ctx);
+  const cpuResult = await findBestScored(ComponentType.CPU, request.budget * distribution.CPU, cpuExtraWhere, ctx);
+  build.CPU = cpuResult.component;
+  if (cpuResult.score) componentScores.CPU = cpuResult.score;
   if (!build.CPU) throw new Error('Tidak ada CPU yang tersedia di database.');
 
-  build.MOTHERBOARD = await findBestScored(
+  const mbResult = await findBestScored(
     ComponentType.MOTHERBOARD,
     request.budget * distribution.MOTHERBOARD,
     { socket: build.CPU.socket },
     { ...ctx, cpuSocket: build.CPU.socket || '' },
   );
+  build.MOTHERBOARD = mbResult.component;
+  if (mbResult.score) componentScores.MOTHERBOARD = mbResult.score;
+
   if (distribution.GPU > 0) {
-    build.GPU = await findBestScored(ComponentType.GPU, request.budget * distribution.GPU, {}, ctx);
+    const gpuResult = await findBestScored(ComponentType.GPU, request.budget * distribution.GPU, {}, ctx);
+    build.GPU = gpuResult.component;
+    if (gpuResult.score) componentScores.GPU = gpuResult.score;
   }
 
   await ensureBalance(build, request.resolution || '1080p', brandFilter);
 
-  build.RAM = await findBestScored(
+  const ramResult = await findBestScored(
     ComponentType.RAM,
     request.budget * distribution.RAM,
     build.MOTHERBOARD ? { ramType: build.MOTHERBOARD.ramType } : {},
     { ...ctx, ramType: build.MOTHERBOARD?.ramType || '' },
   );
-  build.PSU = await findBestScored(ComponentType.PSU, request.budget * distribution.PSU, {}, ctx);
-  build.STORAGE = await findBestScored(ComponentType.STORAGE, request.budget * distribution.STORAGE, {}, ctx);
-  build.CASE = await findBestScored(ComponentType.CASE, request.budget * distribution.CASE, {}, ctx);
+  build.RAM = ramResult.component;
+  if (ramResult.score) componentScores.RAM = ramResult.score;
+
+  const psuResult = await findBestScored(ComponentType.PSU, request.budget * distribution.PSU, {}, ctx);
+  build.PSU = psuResult.component;
+  if (psuResult.score) componentScores.PSU = psuResult.score;
+
+  const storageResult = await findBestScored(ComponentType.STORAGE, request.budget * distribution.STORAGE, {}, ctx);
+  build.STORAGE = storageResult.component;
+  if (storageResult.score) componentScores.STORAGE = storageResult.score;
+
+  const caseResult = await findBestScored(ComponentType.CASE, request.budget * distribution.CASE, {}, ctx);
+  build.CASE = caseResult.component;
+  if (caseResult.score) componentScores.CASE = caseResult.score;
 
   const cpuTdp = build.CPU?.tdp || 0;
   const needsCooler = cpuTdp > 65 || /i7|i9|Ryzen 7|Ryzen 9|X3D|K$|KF$|KS/i.test(build.CPU?.name || '');
@@ -321,17 +361,24 @@ async function generateSingleBuild(
 
   if (coolerTarget > 0) {
     const coolerMode: ScoringMode = needsCooler ? 'performance' : 'value';
-    build.COOLER = await findBestScored(ComponentType.COOLER, coolerTarget, {}, { ...ctx, mode: coolerMode });
+    const coolerResult = await findBestScored(ComponentType.COOLER, coolerTarget, {}, { ...ctx, mode: coolerMode });
+    build.COOLER = coolerResult.component;
+    if (coolerResult.score) componentScores.COOLER = coolerResult.score;
   }
   if (!build.COOLER && coolerTarget > 0) {
-    build.COOLER = await findBestScored(ComponentType.COOLER, coolerTarget, {}, ctx);
+    const coolerResult = await findBestScored(ComponentType.COOLER, coolerTarget, {}, ctx);
+    build.COOLER = coolerResult.component;
+    if (coolerResult.score) componentScores.COOLER = coolerResult.score;
   }
 
   if (request.includePeripheral && distribution.PERIPHERALS) {
     const perBudget = request.budget * distribution.PERIPHERALS;
     for (const pt of PERIPHERAL_TYPES) {
       const found = await findBestScored(pt.type, perBudget * pt.share, {}, ctx);
-      if (found) build[pt.type] = found;
+      if (found.component) {
+        build[pt.type] = found.component;
+        if (found.score) componentScores[pt.type as string] = found.score;
+      }
     }
   }
 
@@ -507,6 +554,7 @@ async function generateSingleBuild(
   return {
     build,
     originalBuild,
+    componentScores,
     totalPrice,
     isOverBudget,
     targetBudget: request.budget,
