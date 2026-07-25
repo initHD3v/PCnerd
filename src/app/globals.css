@@ -103,6 +103,15 @@
   }
 }
 
+/* Hide scrollbar for mobile tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .section-card {
   @apply p-5 rounded-2xl border;
   @apply bg-white border-gray-100;

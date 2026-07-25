@@ -1008,7 +1008,7 @@ export default function BuildResults() {
                                         {pct}
                                       </span>
                                     </div>
-                                    <div className="absolute bottom-full left-0 mb-2 w-44 opacity-0 invisible group-hover/score:opacity-100 group-hover/score:visible transition-all duration-200 z-20 pointer-events-none">
+                                    <div className="absolute bottom-full left-0 mb-2 w-44 opacity-100 visible md:opacity-0 md:invisible md:group-hover/score:opacity-100 md:group-hover/score:visible transition-all duration-200 z-20 pointer-events-none">
                                       <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg p-2.5 shadow-xl text-[10px] space-y-1.5 border border-white/10">
                                         <div className="font-black text-[9px] uppercase tracking-wider opacity-60 mb-1.5">
                                           Skor Komponen
@@ -1071,10 +1071,10 @@ export default function BuildResults() {
                               Rp {part.price.toLocaleString('id-ID')}
                             </div>
                             {!isRemoved && (
-                              <div className="flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover/card:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => handleRemove(type)}
-                                  className="w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"
+                                  className="w-8 h-8 md:w-6 md:h-6 rounded-lg md:rounded-md flex items-center justify-center text-[10px] md:text-[9px] font-bold bg-red-500/10 text-red-500 md:hover:bg-red-500/20 transition-all"
                                   title="Hapus komponen"
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -1099,7 +1099,7 @@ export default function BuildResults() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Lihat detail"
-                          className="absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center opacity-20 hover:opacity-100 hover:bg-white/10 transition-all"
+                          className="absolute bottom-2 right-2 w-8 h-8 md:w-6 md:h-6 rounded-lg md:rounded-md flex items-center justify-center opacity-100 md:opacity-20 md:hover:opacity-100 md:hover:bg-white/10 transition-all"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5">
@@ -1356,7 +1356,7 @@ export default function BuildResults() {
                                 <button
                                   key={q}
                                   onClick={() => setGameQuality(q)}
-                                  className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${gameQuality === q ? 'bg-primary text-black shadow-sm' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                  className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${gameQuality === q ? 'bg-primary text-black shadow-sm' : 'bg-white/5 text-gray-400 active:bg-white/10 md:hover:bg-white/10'}`}
                                 >
                                   {q}
                                 </button>
@@ -1367,7 +1367,7 @@ export default function BuildResults() {
                                 <button
                                   key={t}
                                   onClick={() => setGameType(t)}
-                                  className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${gameType === t ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                  className={`flex-1 py-1 text-[9px] font-bold rounded-md transition-all ${gameType === t ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-400 active:bg-white/10 md:hover:bg-white/10'}`}
                                 >
                                   {t}
                                 </button>
@@ -2132,14 +2132,14 @@ function PeripheralsCard({
                     <div className="text-xs font-black text-primary">Rp {part.price.toLocaleString('id-ID')}</div>
                     <button
                       onClick={() => onRemove(type)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all opacity-0 group-hover/peripheral:opacity-100"
+                      className="w-7 h-7 md:w-5 md:h-5 rounded-lg md:rounded flex items-center justify-center text-[9px] md:text-[8px] font-bold bg-red-500/10 text-red-500 md:hover:bg-red-500/20 transition-all opacity-100 md:opacity-0 md:group-hover/peripheral:opacity-100"
                       title="Hapus peripheral"
                     >
-                      <Trash2 className="w-2.5 h-2.5" />
+                      <Trash2 className="w-3 h-3 md:w-2.5 md:h-2.5" />
                     </button>
                     <button
                       onClick={() => onReplace(type)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold bg-white/5 text-gray-400 hover:bg-white/10 hover:text-primary transition-all opacity-0 group-hover/peripheral:opacity-100"
+                      className="w-7 h-7 md:w-5 md:h-5 rounded-lg md:rounded flex items-center justify-center text-[9px] md:text-[8px] font-bold bg-white/5 text-gray-400 md:hover:bg-white/10 md:hover:text-primary transition-all opacity-100 md:opacity-0 md:group-hover/peripheral:opacity-100"
                       title="Ganti peripheral"
                     >
                       <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

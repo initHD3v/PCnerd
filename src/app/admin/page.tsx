@@ -827,7 +827,7 @@ export default function AdminDashboard() {
                   <option value="name-asc">Name A-Z</option>
                   <option value="name-desc">Name Z-A</option>
                 </select>
-                <div className="relative group min-w-[300px]">
+                <div className="relative group min-w-0 w-full md:min-w-[300px] md:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
                   <input
                     type="text"
@@ -957,7 +957,7 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => {
                                   setEditingId(comp.id);
@@ -1081,7 +1081,7 @@ export default function AdminDashboard() {
                           {new Date(adm.createdAt).toLocaleDateString('id-ID')}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => {
                                 setAdminForm({ username: adm.username, password: '', role: adm.role });

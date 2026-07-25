@@ -142,7 +142,7 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="max-w-4xl mx-auto"
         >
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
             Rakit PC Impianmu dengan <span className="gradient-text">Kecerdasan AI</span>
           </h1>
           <p
@@ -165,12 +165,13 @@ export default function Home() {
                 {chatHistory.length > 1 && (
                   <button
                     onClick={handleClear}
-                    className={`absolute top-1 right-1 z-10 p-1.5 rounded-lg transition-all ${
-                      isDarkMode ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-400 hover:text-gray-700'
+                    className={`absolute top-1 right-1 z-10 p-2 md:p-1.5 rounded-lg transition-all ${
+                      isDarkMode ? 'md:hover:bg-white/10 text-gray-400 md:hover:text-white' : 'md:hover:bg-gray-200 text-gray-400 md:hover:text-gray-700'
                     }`}
                     title="Hapus percakapan"
+                    aria-label="Hapus percakapan"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                   </button>
                 )}
                 {chatHistory.map((msg, i) => (
@@ -283,7 +284,7 @@ export default function Home() {
                               setPrompt(ex);
                               setError('');
                             }}
-                            className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            className={`text-[11px] md:text-[9px] px-3 py-1.5 md:px-2 md:py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 md:hover:bg-white/10' : 'bg-gray-100 text-gray-500 md:hover:bg-gray-200'}`}
                           >
                             {ex}
                           </button>
@@ -325,7 +326,7 @@ export default function Home() {
                       setPrompt(ex);
                       setError('');
                     }}
-                    className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    className={`text-[11px] md:text-[9px] px-3 py-1.5 md:px-2 md:py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 md:hover:bg-white/10' : 'bg-gray-100 text-gray-500 md:hover:bg-gray-200'}`}
                   >
                     {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}
                   </button>

@@ -183,7 +183,7 @@ export default function BuildForm() {
           </div>
         </div>
 
-        <div className="glass-card p-8 min-h-[450px] flex flex-col">
+        <div className="glass-card p-6 sm:p-8 min-h-[350px] sm:min-h-[450px] flex flex-col">
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div
