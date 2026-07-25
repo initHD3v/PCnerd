@@ -90,6 +90,7 @@
 ## Changelog — 23 Jul 2026
 
 ### Done
+
 - [x] **Local LLM integration (LM Studio)** — added `AppSetting` model, settings API (GET/PATCH/test-llm), and LM Studio provider to `llm.ts`. Users can connect to any OpenAI-compatible local server via admin LLM Settings.
 - [x] **LLM Settings UI redesign** — clean 3-step flow: input server URL → Test Connection → pick model from available list → save.
 - [x] **Increased `max_tokens` 1024 → 4096** — reasoning models (Qwen3) previously spent all tokens on "thinking", outputting empty/truncated JSON.
@@ -99,23 +100,25 @@
 - [x] **Repo made public** — `initHD3v/PCnerd` is now public on GitHub.
 
 ### Issues Encountered
+
 - **Qwen3-8B (reasoning model)**: terlalu lama (~80s reasoning per request) + token habis untuk berpikir, output JSON kosong/kepotong. Solusi: ganti ke non-reasoning model (Mistral 7B).
 - **LM Studio Channel Error**: Mistral 7B dengan Parallel=4 + Context=8192 kehabisan memory di M1 Pro 16GB. Belum terverifikasi fix Parallel=1 + Context=4096. Alternatif: Llama 3.2 3B atau Ollama.
 - **Prisma stale client**: setelah add model AppSetting, perlu `npx prisma generate` + restart dev server.
 
 ### Files Touched
-| File | Change |
-|---|---|
-| `prisma/schema.prisma` | Added `AppSetting` model |
-| `prisma/migrations/` | New migration `add_app_setting` |
-| `src/lib/llm.ts` | Added LM Studio provider, DB-backed `detectConfig()`, increased max_tokens |
-| `src/lib/build-service.ts` | Sequential narrative generation with delay |
-| `src/lib/recommendation-engine.ts` | Passes benchmark FPS data in LLM prompt |
-| `src/app/admin/page.tsx` | New LLMSettingsPanel component |
-| `src/app/api/admin/settings/route.ts` | GET/PATCH for LLM settings |
-| `src/app/api/admin/settings/test-llm/route.ts` | Test connection endpoint |
-| `src/app/build/results/page.tsx` | Enhanced loading animation |
-| `src/components/build/BuildForm.tsx` | Loading overlay component |
+
+| File                                           | Change                                                                     |
+| ---------------------------------------------- | -------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                         | Added `AppSetting` model                                                   |
+| `prisma/migrations/`                           | New migration `add_app_setting`                                            |
+| `src/lib/llm.ts`                               | Added LM Studio provider, DB-backed `detectConfig()`, increased max_tokens |
+| `src/lib/build-service.ts`                     | Sequential narrative generation with delay                                 |
+| `src/lib/recommendation-engine.ts`             | Passes benchmark FPS data in LLM prompt                                    |
+| `src/app/admin/page.tsx`                       | New LLMSettingsPanel component                                             |
+| `src/app/api/admin/settings/route.ts`          | GET/PATCH for LLM settings                                                 |
+| `src/app/api/admin/settings/test-llm/route.ts` | Test connection endpoint                                                   |
+| `src/app/build/results/page.tsx`               | Enhanced loading animation                                                 |
+| `src/components/build/BuildForm.tsx`           | Loading overlay component                                                  |
 
 ## Status Pekerjaan
 
@@ -135,10 +138,10 @@
 
 ### Files Touched (25 Jul 2026)
 
-| File | Change |
-|---|---|
-| `src/lib/llm.ts` | LM Studio system→user merge, streaming, max_tokens 4096 |
-| `src/lib/build-service.ts` | Multi-factor scoring in BuildResult, componentScores returned |
-| `src/lib/recommendation-engine.ts` | RAM `getUpgradeImpact` fix (real FPS instead of multiplier×100) |
-| `src/app/build/results/page.tsx` | Streaming narrative, score bars + tooltip, filter/sort modal, RAM in Technical Overview, upgrade benefit in modal, bottleneck gauge, FPS impact bars |
-| `src/app/api/ai/narrative/route.ts` | SSE streaming endpoint
+| File                                | Change                                                                                                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/llm.ts`                    | LM Studio system→user merge, streaming, max_tokens 4096                                                                                              |
+| `src/lib/build-service.ts`          | Multi-factor scoring in BuildResult, componentScores returned                                                                                        |
+| `src/lib/recommendation-engine.ts`  | RAM `getUpgradeImpact` fix (real FPS instead of multiplier×100)                                                                                      |
+| `src/app/build/results/page.tsx`    | Streaming narrative, score bars + tooltip, filter/sort modal, RAM in Technical Overview, upgrade benefit in modal, bottleneck gauge, FPS impact bars |
+| `src/app/api/ai/narrative/route.ts` | SSE streaming endpoint                                                                                                                               |

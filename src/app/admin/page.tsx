@@ -1624,7 +1624,9 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
           </div>
 
           {model && (
-            <div className={`mb-3 px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-2 ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+            <div
+              className={`mb-3 px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-2 ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}
+            >
               <Check className="w-3.5 h-3.5" />
               Model aktif: <span className="font-mono">{model}</span>
             </div>

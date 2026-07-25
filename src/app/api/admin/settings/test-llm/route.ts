@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
     }
 
     const listData = await listRes.json();
-    const models: string[] = (listData.data || listData || []).map((m: any) => m.id || m.name || String(m)).filter(Boolean);
+    const models: string[] = (listData.data || listData || [])
+      .map((m: any) => m.id || m.name || String(m))
+      .filter(Boolean);
     const availableModels = models.length > 0 ? models : ['default'];
 
     // Second: try a simple chat completion to verify inference works
@@ -63,9 +65,10 @@ export async function POST(req: NextRequest) {
         : 'Koneksi ke server berhasil. Pilih model untuk menguji respon.',
     });
   } catch (error: any) {
-    const message = error.name === 'TimeoutError' || error.name === 'AbortError'
-      ? 'Timeout: server tidak merespon dalam 5 detik'
-      : error.message;
+    const message =
+      error.name === 'TimeoutError' || error.name === 'AbortError'
+        ? 'Timeout: server tidak merespon dalam 5 detik'
+        : error.message;
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

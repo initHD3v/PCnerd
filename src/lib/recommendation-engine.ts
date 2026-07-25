@@ -145,7 +145,7 @@ function getBaseDistribution(budget: number, purpose: BuildPurpose): BudgetSplit
     splits.GPU += 0.05;
     if (budget > 12000000) splits.COOLER = Math.max(splits.COOLER, 0.06);
   } else if (purpose === 'Office') {
-    splits.CPU = 0.40;
+    splits.CPU = 0.4;
     splits.GPU = 0.0;
     splits.MOTHERBOARD = 0.13;
     splits.RAM = 0.18;
@@ -154,7 +154,7 @@ function getBaseDistribution(budget: number, purpose: BuildPurpose): BudgetSplit
     splits.CASE = 0.05;
     splits.COOLER = 0.0;
   } else if (purpose === 'Coding') {
-    splits.CPU += 0.10;
+    splits.CPU += 0.1;
     splits.RAM += 0.08;
     splits.STORAGE += 0.03;
     splits.GPU = Math.max(0, splits.GPU - 0.15);
@@ -178,7 +178,17 @@ export const getExpertDistribution = (
   const multiPurposes = detectMultiPurpose(purpose, text);
 
   if (multiPurposes.length > 1) {
-    const blended: BudgetSplit = { CPU: 0, GPU: 0, MOTHERBOARD: 0, RAM: 0, STORAGE: 0, PSU: 0, CASE: 0, COOLER: 0, PERIPHERALS: 0 };
+    const blended: BudgetSplit = {
+      CPU: 0,
+      GPU: 0,
+      MOTHERBOARD: 0,
+      RAM: 0,
+      STORAGE: 0,
+      PSU: 0,
+      CASE: 0,
+      COOLER: 0,
+      PERIPHERALS: 0,
+    };
     const seen = new Set<string>();
     for (const mp of multiPurposes) {
       const key = `${budget}-${mp}`;
@@ -311,12 +321,26 @@ export const predictPerformance = (
         estimates.push({
           category: 'Office (Multitasking)',
           fps: `CPU Multi: ${cpuBench.passmarkMulti}`,
-          level: cpuBench.passmarkMulti >= 15000 ? 'Ultra' : cpuBench.passmarkMulti >= 8000 ? 'High' : cpuBench.passmarkMulti >= 4000 ? 'Mid' : 'Entry',
+          level:
+            cpuBench.passmarkMulti >= 15000
+              ? 'Ultra'
+              : cpuBench.passmarkMulti >= 8000
+                ? 'High'
+                : cpuBench.passmarkMulti >= 4000
+                  ? 'Mid'
+                  : 'Entry',
         });
         estimates.push({
           category: 'Office (Single Task)',
           fps: `CPU Single: ${cpuBench.passmarkSingle}`,
-          level: cpuBench.passmarkSingle >= 3000 ? 'Ultra' : cpuBench.passmarkSingle >= 2000 ? 'High' : cpuBench.passmarkSingle >= 1200 ? 'Mid' : 'Entry',
+          level:
+            cpuBench.passmarkSingle >= 3000
+              ? 'Ultra'
+              : cpuBench.passmarkSingle >= 2000
+                ? 'High'
+                : cpuBench.passmarkSingle >= 1200
+                  ? 'Mid'
+                  : 'Entry',
         });
       }
       estimates.push({
@@ -329,12 +353,26 @@ export const predictPerformance = (
         estimates.push({
           category: 'CPU Multi (Compile)',
           fps: `Multi: ${cpuBench.passmarkMulti}`,
-          level: cpuBench.passmarkMulti >= 20000 ? 'Ultra' : cpuBench.passmarkMulti >= 10000 ? 'High' : cpuBench.passmarkMulti >= 5000 ? 'Mid' : 'Entry',
+          level:
+            cpuBench.passmarkMulti >= 20000
+              ? 'Ultra'
+              : cpuBench.passmarkMulti >= 10000
+                ? 'High'
+                : cpuBench.passmarkMulti >= 5000
+                  ? 'Mid'
+                  : 'Entry',
         });
         estimates.push({
           category: 'CPU Single (IDE)',
           fps: `Single: ${cpuBench.passmarkSingle}`,
-          level: cpuBench.passmarkSingle >= 3500 ? 'Ultra' : cpuBench.passmarkSingle >= 2500 ? 'High' : cpuBench.passmarkSingle >= 1500 ? 'Mid' : 'Entry',
+          level:
+            cpuBench.passmarkSingle >= 3500
+              ? 'Ultra'
+              : cpuBench.passmarkSingle >= 2500
+                ? 'High'
+                : cpuBench.passmarkSingle >= 1500
+                  ? 'Mid'
+                  : 'Entry',
         });
       }
       if (ramImpact) {
@@ -514,7 +552,7 @@ export function getUpgradeImpact(
     const currentRam = findRamImpact(currentPart.name);
     const suggestedRam = findRamImpact(suggestedPart.name);
     if (currentRam && suggestedRam) {
-      const fpsUpliftPct = (suggestedRam.gamingFpsMultiplier - currentRam.gamingFpsMultiplier);
+      const fpsUpliftPct = suggestedRam.gamingFpsMultiplier - currentRam.gamingFpsMultiplier;
       const baseFps = 80;
       const currentEst = Math.round(baseFps * currentRam.gamingFpsMultiplier);
       const suggestedEst = Math.round(baseFps * suggestedRam.gamingFpsMultiplier);

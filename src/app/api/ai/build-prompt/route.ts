@@ -69,11 +69,7 @@ function parseIncludePeripheral(text: string): boolean {
   return false;
 }
 
-function estimateBudget(
-  purpose: BuildPurpose,
-  resolution: Resolution,
-  text: string,
-): number {
+function estimateBudget(purpose: BuildPurpose, resolution: Resolution, text: string): number {
   const lower = text.toLowerCase();
 
   // Detect target FPS
@@ -102,9 +98,7 @@ function estimateBudget(
   else if (targetFps > 0) budget *= 0.8;
 
   // Multi-purpose build (e.g. gaming + editing + rendering)
-  const purposeCount = ['gaming', 'edit', 'render', 'stream', 'code'].filter(
-    (w) => lower.includes(w),
-  ).length;
+  const purposeCount = ['gaming', 'edit', 'render', 'stream', 'code'].filter((w) => lower.includes(w)).length;
   if (purposeCount >= 3) budget *= 1.4;
   else if (purposeCount >= 2) budget *= 1.2;
 

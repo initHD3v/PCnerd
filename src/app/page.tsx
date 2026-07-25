@@ -68,9 +68,7 @@ export default function Home() {
     <div
       className={`flex flex-col min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
-      <AnimatePresence>
-        {loading && <AiLoadingOverlay isDarkMode={isDarkMode} />}
-      </AnimatePresence>
+      <AnimatePresence>{loading && <AiLoadingOverlay isDarkMode={isDarkMode} />}</AnimatePresence>
       {/* Navigation */}
       <nav
         className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-500 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
@@ -140,7 +138,10 @@ export default function Home() {
                       {EXAMPLE_PROMPTS.slice(0, 2).map((ex, i) => (
                         <button
                           key={i}
-                          onClick={() => { setPrompt(ex); setError(''); }}
+                          onClick={() => {
+                            setPrompt(ex);
+                            setError('');
+                          }}
                           className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                         >
                           {ex.length > 35 ? ex.slice(0, 35) + '...' : ex}
@@ -166,11 +167,7 @@ export default function Home() {
             </div>
 
             {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-2 text-left"
-              >
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="mt-2 text-left">
                 <p className="text-red-500 text-xs">{error}</p>
                 {hint && <p className="text-gray-400 text-[10px] mt-1">{hint}</p>}
               </motion.div>
@@ -180,7 +177,10 @@ export default function Home() {
               {EXAMPLE_PROMPTS.slice(2).map((ex, i) => (
                 <button
                   key={i + 2}
-                  onClick={() => { setPrompt(ex); setError(''); }}
+                  onClick={() => {
+                    setPrompt(ex);
+                    setError('');
+                  }}
                   className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                 >
                   {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}

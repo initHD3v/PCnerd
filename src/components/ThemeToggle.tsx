@@ -14,11 +14,7 @@ export default function ThemeToggle() {
       className="theme-toggle-btn relative"
       title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
     >
-      {theme === 'dark' ? (
-        <Monitor className="w-5 h-5" />
-      ) : (
-        <Moon className="w-5 h-5" />
-      )}
+      {theme === 'dark' ? <Monitor className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
 
       <div
         className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${theme === 'dark' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-gray-400'}`}

@@ -201,15 +201,15 @@ type ResolutionThresholds = {
 };
 
 const RESOLUTION_THRESHOLDS: Record<string, ResolutionThresholds> = {
-  '1080p': { cpuSevere: 0.15, cpuModerate: 0.20, cpuMinor: 0.25, minorGpu: 0.70, moderateGpu: 1.00, severeGpu: 1.50 },
-  '1440p': { cpuSevere: 0.12, cpuModerate: 0.17, cpuMinor: 0.22, minorGpu: 0.85, moderateGpu: 1.20, severeGpu: 1.80 },
-  '4K': { cpuSevere: 0.10, cpuModerate: 0.14, cpuMinor: 0.18, minorGpu: 1.20, moderateGpu: 1.80, severeGpu: 2.50 },
+  '1080p': { cpuSevere: 0.15, cpuModerate: 0.2, cpuMinor: 0.25, minorGpu: 0.7, moderateGpu: 1.0, severeGpu: 1.5 },
+  '1440p': { cpuSevere: 0.12, cpuModerate: 0.17, cpuMinor: 0.22, minorGpu: 0.85, moderateGpu: 1.2, severeGpu: 1.8 },
+  '4K': { cpuSevere: 0.1, cpuModerate: 0.14, cpuMinor: 0.18, minorGpu: 1.2, moderateGpu: 1.8, severeGpu: 2.5 },
 };
 
 function getTargetBalanceRatio(resolution: string): number {
-  if (resolution === '4K') return 0.70;
-  if (resolution === '1440p') return 0.50;
-  return 0.40;
+  if (resolution === '4K') return 0.7;
+  if (resolution === '1440p') return 0.5;
+  return 0.4;
 }
 
 export function analyzeBottleneck(
