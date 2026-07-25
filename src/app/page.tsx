@@ -67,6 +67,11 @@ export default function Home() {
 
       if (data.intent === 'question') {
         setChatHistory((prev) => [...prev, { role: 'assistant', text: data.answer || 'Maaf, tidak ada jawaban.' }]);
+      } else if (data.intent === 'invalid') {
+        setChatHistory((prev) => [
+          ...prev,
+          { role: 'assistant', text: data.reason || 'Maaf, pertanyaan tidak dapat diproses.' },
+        ]);
       } else {
         localStorage.setItem('latest_build', JSON.stringify(data.result));
         localStorage.setItem('build_request', JSON.stringify(data.request));

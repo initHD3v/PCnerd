@@ -110,7 +110,42 @@ function estimateBudget(purpose: BuildPurpose, resolution: Resolution, text: str
   return Math.round(Math.max(budget, 5_000_000));
 }
 
-const PROMPT_SYSTEM_BUILD = `You are a PC builder AI. The user wants to build or get a recommendation for a PC.
+const OFF_TOPIC_PATTERNS = [
+  /tolong buatkan (puisi|cerita|esai|artikel|lagu|naskah)/i,
+  /resep (masakan|makanan|minuman)/i,
+  /cuaca|ramalan (zodiak|bintang)/i,
+  /politik|presiden|pemilu|parpol/i,
+  /agama|ibadah|dosa|sesat/i,
+  /seks|porn|bokep|konten dewasa|telanjang/i,
+  /narkoba|ganja|psikotropika/i,
+  /meretas|membobol|malware|cracking/i,
+  /pinjaman online|hutang|kartu kredit|paylater/i,
+  /lowongan kerja|cpns|lamaran pekerjaan/i,
+  /penyakit|obat obatan|rumah sakit/i,
+  /menghina|mengejek|rasis|sara|ujaran kebencian/i,
+  /chatgpt|ai lain|ai lainnya|deepseek|claude/i,
+  /mencuri|merampok|menipu|scam/i,
+];
+
+const PROMPT_SYSTEM_BUILD = `You are PCnerd AI — a PC building assistant. You ONLY answer PC-related topics.
+
+IMPORTANT VALIDATION RULES:
+- If the user's message is NOT about PC components, PC builds, hardware, benchmarks, gaming performance, or PC technology, respond with:
+{"intent":"invalid","reason":"Your message is not related to PC building. PCnerd only answers PC & hardware questions."}
+
+- If the user asks about topics like: cooking, politics, religion, relationships, weather, programming (non-PC), health, sports, finance, or any topic NOT PC-related → respond with intent:"invalid"
+
+Valid PC-related topics:
+- PC components (CPU, GPU, RAM, motherboard, PSU, storage, case, cooler)
+- PC builds, build recommendations
+- Intel vs AMD, NVIDIA vs AMD comparisons
+- Gaming performance, FPS, benchmarks
+- DDR4 vs DDR5, PCIe, SSD vs HDD
+- PC troubleshooting, compatibility
+- Peripherals (monitor, keyboard, mouse)
+- PC technology news in general
+
+Otherwise, detect intent normally.
 
 Respond ONLY with valid JSON (no markdown, no code fences).
 First, detect the user's intent:
@@ -164,10 +199,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
+    // Step 0: Rule-based off-topic filter (quick check before LLM call)
+    const isOffTopic = OFF_TOPIC_PATTERNS.some((pat) => pat.test(prompt));
+    if (isOffTopic) {
+      return NextResponse.json({
+        intent: 'invalid',
+        reason:
+          'Maaf, PCnerd hanya dapat menjawab pertanyaan seputar PC, komponen hardware, dan build PC. Pertanyaan di luar topik tersebut tidak dapat kami proses.',
+      });
+    }
+
     // Step 1: Detect intent using LLM
     const llmResult = await callLLM(PROMPT_SYSTEM_BUILD, prompt);
     let intent = 'build';
     let questionSummary = '';
+    let invalidReason = '';
 
     if (llmResult) {
       try {
@@ -176,8 +222,19 @@ export async function POST(req: NextRequest) {
         if (parsed.intent === 'question') {
           intent = 'question';
           questionSummary = parsed.question || prompt;
+        } else if (parsed.intent === 'invalid') {
+          intent = 'invalid';
+          invalidReason = parsed.reason || 'Pertanyaan tidak terkait dengan PC.';
         }
       } catch {}
+    }
+
+    // Step 1b: Handle invalid intent from LLM
+    if (intent === 'invalid') {
+      return NextResponse.json({
+        intent: 'invalid',
+        reason: invalidReason,
+      });
     }
 
     // Step 2: Handle general question
