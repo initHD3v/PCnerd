@@ -110,12 +110,12 @@ export default function Home() {
 
   return (
     <div
-      className={`flex flex-col min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      className={`flex flex-col min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
       <AnimatePresence>{loading === 'build' && <AiLoadingOverlay isDarkMode={isDarkMode} />}</AnimatePresence>
       {/* Navigation */}
       <nav
-        className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-500 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
+        className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-300 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
       >
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
@@ -146,7 +146,7 @@ export default function Home() {
             Rakit PC Impianmu dengan <span className="gradient-text">Kecerdasan AI</span>
           </h1>
           <p
-            className={`text-xl mb-10 max-w-2xl mx-auto leading-relaxed transition-colors duration-500 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
+            className={`text-xl mb-10 max-w-2xl mx-auto leading-relaxed transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
           >
             Dapatkan rekomendasi build PC terbaik berdasarkan budget Anda, lengkap dengan performa gaming, estabilasi
             harga termurah, dan jaminan kompatibilitas.

@@ -12,15 +12,13 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const getInitialTheme = (): Theme => {
+  const [theme, setTheme] = useState<Theme>(() => {
     try {
-      const saved = localStorage.getItem('pcnerd-theme') as Theme;
-      if (saved) return saved;
-      if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
-    } catch {}
-    return 'dark';
-  };
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    } catch {
+      return 'dark';
+    }
+  });
 
   useEffect(() => {
     if (theme === 'dark') {

@@ -585,7 +585,7 @@ export default function BuildResults() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      className={`min-h-screen transition-colors duration-300 ${isDark ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
       <style>{`
         @media print {

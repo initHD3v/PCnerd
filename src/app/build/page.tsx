@@ -12,11 +12,11 @@ export default function BuildPage() {
 
   return (
     <main
-      className={`min-h-screen pt-20 pb-12 px-4 flex flex-col items-center transition-colors duration-500 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      className={`min-h-screen pt-20 pb-12 px-4 flex flex-col items-center transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
       {/* Navigation */}
       <nav
-        className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-500 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
+        className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-300 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
       >
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 text-sm text-gray-500 hover:text-primary transition-colors">

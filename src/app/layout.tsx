@@ -24,6 +24,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `try{let t=localStorage.getItem('pcnerd-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`
+        }} />
+      </head>
       <body className="antialiased transition-colors duration-300 dark:bg-black dark:text-gray-200 bg-gray-50 text-gray-800 font-sans">
         <ThemeProvider>{children}</ThemeProvider>
       </body>

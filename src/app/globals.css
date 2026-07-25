@@ -76,7 +76,7 @@
 }
 
 .glass-card {
-  @apply backdrop-blur-md border rounded-2xl transition-all duration-500;
+  @apply backdrop-blur-md border rounded-2xl transition-all duration-300;
   @apply bg-white border-gray-200 shadow-sm text-gray-800;
   @apply dark:bg-black dark:border-emerald-500/20 dark:text-gray-200 dark:shadow-[0_0_20px_rgba(16,185,129,0.05)];
 }
