@@ -1566,9 +1566,24 @@ export default function BuildResults() {
                                 {comp.wattage && <span>{comp.wattage}W</span>}
                                 {comp.tdp && <span>{comp.tdp}W TDP</span>}
                               </div>
-                              {comp._impact?.benefit && !isSelected && current && (
-                                <div className="mt-1 text-[8px] leading-tight font-bold text-primary/70 line-clamp-2">
-                                  {comp._impact.benefit}
+                              {comp._impact && !isSelected && current && (
+                                <div className="mt-1.5 space-y-1">
+                                  {comp._impact.currentFps !== undefined && comp._impact.newFps !== undefined ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden flex">
+                                        <div className="h-full bg-red-500/50 rounded-l-full transition-all" style={{ width: '40%' }} />
+                                        <div className="h-full bg-primary rounded-r-full transition-all" style={{ width: '60%' }} />
+                                      </div>
+                                      <span className="text-[8px] font-mono font-bold text-primary">
+                                        {comp._impact.currentFps}→{comp._impact.newFps} FPS
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {comp._impact.benefit && (
+                                    <div className="text-[8px] leading-tight font-bold text-primary/70 line-clamp-1">
+                                      {comp._impact.benefit}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1639,9 +1654,29 @@ function BottleneckCard({ build, technical, isDark, resolution }: { build: any; 
 
   const isBottleneck = technical.bottleneckStatus && !technical.bottleneckStatus.includes('Seimbang');
   const isSevere = technical.bottleneckStatus?.includes('Severe') || technical.bottleneckStatus?.includes('Moderate');
-
   const fix = suggestBottleneckFix(cpuBench, gpuBench, resolution || '1080p');
   const showRed = isBottleneck && isSevere;
+
+  let ratio = 0;
+  let gpuFps = 0;
+  let balancedMin = 0;
+  let balancedMax = 0;
+  let gaugePct = 0;
+  if (cpuBench && gpuBench) {
+    const getFps = (b: typeof gpuBench) => {
+      if (resolution === '4K') return b.fps4k;
+      if (resolution === '1440p') return b.fps1440p;
+      return b.fps1080p;
+    };
+    gpuFps = getFps(gpuBench);
+    ratio = gpuFps > 0 ? cpuBench.passmarkSingle / (gpuFps * 100) : 0;
+    const t = resolution === '4K' ? { cpuMin: 0.18, gpuMax: 1.20 }
+      : resolution === '1440p' ? { cpuMin: 0.22, gpuMax: 0.85 }
+      : { cpuMin: 0.25, gpuMax: 0.70 };
+    balancedMin = t.cpuMin;
+    balancedMax = t.gpuMax;
+    gaugePct = Math.min(100, Math.max(0, (ratio / (t.gpuMax * 2)) * 100));
+  }
 
   return (
     <section
@@ -1664,24 +1699,44 @@ function BottleneckCard({ build, technical, isDark, resolution }: { build: any; 
         {showRed ? technical.bottleneckStatus : 'Seimbang — performa optimal'}
       </p>
 
-      {cpuBench && gpuBench && (
-        <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
-          <div className={`p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white/50'}`}>
-            <div className="text-[9px] font-bold uppercase tracking-wider opacity-40 mb-0.5">CPU PassMark</div>
-            <div className="text-sm font-black">{cpuBench.passmarkSingle.toLocaleString()}</div>
-          </div>
-          <div className={`p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white/50'}`}>
-            <div className="text-[9px] font-bold uppercase tracking-wider opacity-40 mb-0.5">GPU Avg FPS</div>
-            <div className="text-sm font-black">
-              {Math.round((gpuBench.fps1080p + gpuBench.fps1440p + gpuBench.fps4k) / 3)}
+      {cpuBench && gpuBench && gpuFps > 0 && (
+        <div className="space-y-3 mt-3 mb-3">
+          <div className="relative h-6 rounded-full bg-white/10 overflow-hidden">
+            <div className="absolute inset-0 flex">
+              <div className="h-full bg-red-500/20" style={{ width: `${(balancedMin / (balancedMax * 2)) * 100}%` }} />
+              <div className="h-full bg-emerald-500/20" style={{ width: `${((balancedMax - balancedMin) / (balancedMax * 2)) * 100}%` }} />
+              <div className="h-full bg-red-500/20 flex-1" />
             </div>
+            <div
+              className="absolute top-0.5 h-5 w-1 rounded-full bg-white shadow-lg transition-all duration-500 z-10"
+              style={{ left: `${gaugePct}%`, transform: 'translateX(-50%)' }}
+            />
+            <div className="absolute inset-0 flex items-center px-2">
+              <span className="text-[7px] font-black text-red-400">CPU</span>
+              <span className="flex-1 text-center text-[7px] font-black text-emerald-400">Seimbang</span>
+              <span className="text-[7px] font-black text-red-400">GPU</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white/50'}`}>
+              <div className="text-[9px] font-bold uppercase tracking-wider opacity-40 mb-0.5">CPU PassMark</div>
+              <div className="text-sm font-black">{cpuBench.passmarkSingle.toLocaleString()}</div>
+            </div>
+            <div className={`p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white/50'}`}>
+              <div className="text-[9px] font-bold uppercase tracking-wider opacity-40 mb-0.5">GPU FPS ({resolution})</div>
+              <div className="text-sm font-black">{gpuFps}</div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[9px]">
+            <span className="opacity-40">Rasio: {(ratio * 100).toFixed(1)}%</span>
+            <span className="opacity-40">Zona seimbang: {Math.round(balancedMin * 100)}% - {Math.round(balancedMax * 100)}%</span>
           </div>
         </div>
       )}
 
       {!showRed && cpuBench && gpuBench && (
         <p className="text-[10px] opacity-50 leading-relaxed">
-          CPU dan GPU telah diseimbangkan secara otomatis oleh PCNerd untuk performa gaming optimal.
+          CPU dan GPU telah diseimbangkan untuk performa gaming optimal di resolusi {resolution}.
         </p>
       )}
 
@@ -1694,15 +1749,23 @@ function BottleneckCard({ build, technical, isDark, resolution }: { build: any; 
             </span>
           </div>
           <div className="space-y-1.5">
-            {fix.suggestions.map((s, i) => (
-              <div key={i} className="flex items-center justify-between text-[11px]">
-                <span className="font-bold">{s.model}</span>
-                <span className="opacity-50 font-mono">
-                  {s.passmarkSingle ? `${s.passmarkSingle.toLocaleString()} pts` : ''}
-                  {s.avgFps ? `${s.avgFps} FPS` : ''}
-                </span>
-              </div>
-            ))}
+            {fix.suggestions.map((s, i) => {
+              const uplift = s.passmarkSingle && cpuBench
+                ? Math.round(((s.passmarkSingle - cpuBench.passmarkSingle) / cpuBench.passmarkSingle) * 100)
+                : 0;
+              const fpsBoost = s.avgFps && gpuFps ? Math.round(((s.avgFps - gpuFps) / gpuFps) * 100) : 0;
+              return (
+                <div key={i} className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold truncate mr-2">{s.model}</span>
+                  <span className="opacity-50 font-mono shrink-0">
+                    {uplift > 0 ? `+${uplift}%` : ''}
+                    {fpsBoost > 0 ? ` +${fpsBoost} FPS` : ''}
+                    {s.passmarkSingle && !uplift ? `${s.passmarkSingle.toLocaleString()} pts` : ''}
+                    {s.avgFps && !fpsBoost ? `${s.avgFps} FPS` : ''}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
