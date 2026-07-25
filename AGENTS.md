@@ -135,3 +135,4 @@
 | 5 | Remove dead `preferredGpu`/`preferredCpu` prompt fields | `src/app/api/ai/build-prompt/route.ts` |
 | 6 | Add `AbortController` timeout to all LLM calls (30s non-streaming, 60s streaming) | `src/lib/llm.ts` |
 | 7 | Truncate conversation history to ~4000 chars | `src/app/api/ai/build-prompt/route.ts` |
+| 8 | Greeting detection & simplified PROMPT_QA — "hai" no longer triggers weird security rambling | `src/app/api/ai/build-prompt/route.ts` |
