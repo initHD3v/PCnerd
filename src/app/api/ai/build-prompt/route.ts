@@ -110,32 +110,52 @@ function estimateBudget(purpose: BuildPurpose, resolution: Resolution, text: str
   return Math.round(Math.max(budget, 5_000_000));
 }
 
-const PROMPT_SYSTEM = `You are a PC builder AI that extracts build requirements from natural language.
-Respond ONLY with a valid JSON object (no markdown, no code fences).
+const PROMPT_SYSTEM_BUILD = `You are a PC builder AI. The user wants to build or get a recommendation for a PC.
 
-Extract these fields from the user's request:
-- budget: number in IDR. If user does NOT mention a specific budget, estimate a reasonable one based on their requirements (resolution, FPS target, purpose, requested hardware).
-- purpose: "Gaming" | "Editing" | "Office" | "Streaming" | "Coding" | "Rendering"
-- resolution: "1080p" | "1440p" | "4K" (default to "1080p" if not mentioned)
-- platform: "intel" | "amd" | "default"
-- includePeripheral: boolean (true if they want monitor/keyboard/mouse)
+Respond ONLY with valid JSON (no markdown, no code fences).
+First, detect the user's intent:
 
-Budget estimation guidelines:
+If the user is ASKING A GENERAL QUESTION about PC components, builds, Intel vs AMD, GPU comparisons, etc. (NOT asking for a specific build), respond with:
+{"intent":"question","question":"brief summary of their question"}
+
+If the user wants a PC BUILD RECOMMENDATION (mentions budget, purpose, or wants to build a PC), respond with:
+{
+  "intent":"build",
+  "budget": <number in IDR. If user mentions a specific budget use it; if not, estimate>,
+  "purpose": "Gaming" | "Editing" | "Office" | "Streaming" | "Coding" | "Rendering",
+  "resolution": "1080p" | "1440p" | "4K",
+  "platform": "intel" | "amd" | "default",
+  "includePeripheral": <boolean>,
+  "preferredGpu": <string or null>,
+  "preferredCpu": <string or null>
+}
+
+Examples of general questions (respond with intent:"question"):
+- "Mana yang lebih bagus Intel atau AMD?"
+- "Apakah RTX 4060 worth it?"
+- "Perbedaan DDR4 dan DDR5?"
+- "Rekomendasi PSU 600W yang bagus?"
+- "Berapa FPS yang bisa didapat dari RTX 3070?"
+- "Apa itu bottleneck?"
+
+Examples of build requests (respond with intent:"build"):
+- "PC gaming Rp 15 juta buat main Valorant"
+- "Build PC for editing 4K video Rp 25 jutaan"
+- "Gaming PC 20 million with RTX 4060 for Warzone"
+- "PC kantor 5 jutaan lengkap monitor"
+
+Budget estimation guidelines for builds:
 - Gaming 1080p: Rp 8-15 juta
-- Gaming 1440p: Rp 15-25 juta  
+- Gaming 1440p: Rp 15-25 juta
 - Gaming 4K: Rp 25-50 juta
 - Video Editing: Rp 15-30 juta
-- 3D Rendering: Rp 20-50 juta
-- Multi-purpose (gaming + editing + render): higher end of range
-- Adjust up for high FPS targets (100+ FPS requires more budget)
+- 3D Rendering: Rp 20-50 juta`;
 
-If the request includes a specific GPU or CPU model, include it in a "preferredGpu" or "preferredCpu" field.
-
-Examples:
-{"budget":15000000,"purpose":"Gaming","resolution":"1080p","platform":"default","includePeripheral":false}
-{"budget":5000000,"purpose":"Office","resolution":"1080p","platform":"default","includePeripheral":true,"preferredCpu":"AMD Ryzen 5"}
-{"budget":30000000,"purpose":"Editing","resolution":"1440p","platform":"intel","includePeripheral":false}
-{"budget":35000000,"purpose":"Gaming","resolution":"1440p","platform":"amd","includePeripheral":false,"preferredGpu":"RTX 4070"}`;
+const PROMPT_QA = `Kamu adalah asisten AI untuk aplikasi PC Builder bernama PCnerd. 
+Tugasmu adalah menjawab pertanyaan user tentang komponen PC, build PC, dan hardware.
+Gunakan bahasa Indonesia yang natural dan informatif.
+Jawab dengan ringkas dan jelas (maksimal 3-4 paragraf). 
+Jangan gunakan markdown. Jawab dalam format teks biasa.`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -144,6 +164,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
+    // Step 1: Detect intent using LLM
+    const llmResult = await callLLM(PROMPT_SYSTEM_BUILD, prompt);
+    let intent = 'build';
+    let questionSummary = '';
+
+    if (llmResult) {
+      try {
+        const cleaned = llmResult.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.intent === 'question') {
+          intent = 'question';
+          questionSummary = parsed.question || prompt;
+        }
+      } catch {}
+    }
+
+    // Step 2: Handle general question
+    if (intent === 'question') {
+      const qaPrompt = `Pertanyaan user: ${prompt}\n\n${questionSummary ? `Ringkasan: ${questionSummary}` : ''}`;
+      const answer = await callLLM(PROMPT_QA, qaPrompt);
+      return NextResponse.json({
+        intent: 'question',
+        question: prompt,
+        answer: answer || 'Maaf, saya belum bisa menjawab pertanyaan itu saat ini. Silakan coba lagi nanti.',
+      });
+    }
+
+    // Step 3: Handle build request (existing flow)
     let extracted: {
       budget: number;
       purpose: BuildPurpose;
@@ -152,16 +200,15 @@ export async function POST(req: NextRequest) {
       includePeripheral: boolean;
     } | null = null;
 
-    // Try LLM extraction
-    const llmResult = await callLLM(PROMPT_SYSTEM, prompt);
+    // Try LLM extraction from the build intent response
     if (llmResult) {
       try {
         const cleaned = llmResult.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(cleaned);
-        if (parsed.purpose) {
+        if (parsed.intent === 'build' && parsed.budget) {
           extracted = {
             budget: parsed.budget,
-            purpose: parsed.purpose,
+            purpose: parsed.purpose || 'Gaming',
             resolution: parsed.resolution || '1080p',
             platform: parsed.platform || 'default',
             includePeripheral: !!parsed.includePeripheral,
@@ -170,12 +217,10 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    // If no LLM or LLM didn't return budget, try rule-based extraction
+    // Fallback rule-based extraction
     if (!extracted || !extracted.budget) {
       const purpose = extracted?.purpose || parsePurpose(prompt);
       const resolution = extracted?.resolution || parseResolution(prompt);
-
-      // First try to find explicit budget from user
       const explicitBudget = parseBudget(prompt);
       if (explicitBudget) {
         if (!extracted) {
@@ -190,7 +235,6 @@ export async function POST(req: NextRequest) {
           extracted.budget = explicitBudget;
         }
       } else {
-        // No budget mentioned — estimate automatically based on requirements
         const estimated = estimateBudget(purpose, resolution, prompt);
         if (!extracted) {
           extracted = {
@@ -205,7 +249,6 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // LLM returned a budget — validate it against purpose minimums
       const purpose = extracted.purpose;
       const resolution = extracted.resolution;
       const minReasonable = estimateBudget(purpose, resolution, prompt);
@@ -230,6 +273,7 @@ export async function POST(req: NextRequest) {
     const result = await generateTieredBuilds({ ...extracted!, text: prompt });
 
     return NextResponse.json({
+      intent: 'build',
       request: extracted!,
       result,
     });

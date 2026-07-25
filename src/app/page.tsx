@@ -2,18 +2,29 @@
 
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Zap, ShieldCheck, TrendingDown, Send, Sparkles } from 'lucide-react';
+import { Cpu, Zap, ShieldCheck, TrendingDown, Send, Sparkles, Bot, User, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/hooks/use-theme';
 import AiLoadingOverlay from '@/components/AiLoadingOverlay';
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 const EXAMPLE_PROMPTS = [
   'PC gaming Rp 15 juta buat main Valorant dan Genshin',
   'Build PC for editing 4K video Rp 25 jutaan',
   'PC kantor 5 jutaan lengkap monitor dan keyboard',
   'Gaming PC 20 million with RTX 4060 for Warzone',
+];
+
+const QA_PROMPTS = [
+  'Mana yang lebih bagus Intel atau AMD?',
+  'Apakah RTX 4060 worth it untuk 2026?',
+  'Perbedaan DDR4 dan DDR5?',
 ];
 
 export default function Home() {
@@ -24,34 +35,45 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [showChat, setShowChat] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async () => {
     if (!prompt.trim() || loading) return;
-    setLoading(true);
+    const userMsg = prompt.trim();
+    setPrompt('');
     setError('');
     setHint('');
+    setChatHistory((prev) => [...prev, { role: 'user', text: userMsg }]);
+    setShowChat(true);
+    setLoading(true);
 
     try {
       const res = await fetch('/api/ai/build-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: userMsg }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Gagal memproses prompt');
+        setChatHistory((prev) => [...prev, { role: 'assistant', text: data.error || 'Gagal memproses prompt' }]);
         if (data.hint) setHint(data.hint);
         return;
       }
 
-      localStorage.setItem('latest_build', JSON.stringify(data.result));
-      localStorage.setItem('build_request', JSON.stringify(data.request));
-      router.push('/build/results');
+      if (data.intent === 'question') {
+        setChatHistory((prev) => [...prev, { role: 'assistant', text: data.answer || 'Maaf, tidak ada jawaban.' }]);
+      } else {
+        localStorage.setItem('latest_build', JSON.stringify(data.result));
+        localStorage.setItem('build_request', JSON.stringify(data.request));
+        router.push('/build/results');
+      }
     } catch (e: any) {
-      setError(e.message || 'Terjadi kesalahan');
+      setChatHistory((prev) => [...prev, { role: 'assistant', text: e.message || 'Terjadi kesalahan' }]);
     } finally {
       setLoading(false);
     }
@@ -108,13 +130,57 @@ export default function Home() {
             harga termurah, dan jaminan kompatibilitas.
           </p>
 
-          {/* AI Prompt Input */}
+          {/* AI Chat / Prompt Input */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            className="max-w-2xl mx-auto mb-12"
+            className="max-w-2xl mx-auto mb-12 w-full"
           >
+            {/* Chat Messages */}
+            {showChat && chatHistory.length > 0 && (
+              <div className="mb-4 space-y-3 max-h-80 overflow-y-auto">
+                {chatHistory.map((msg, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {msg.role === 'assistant' && (
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-primary/20' : 'bg-primary/10'}`}
+                      >
+                        <Bot className={`w-4 h-4 ${isDarkMode ? 'text-primary' : 'text-primary'}`} />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                        msg.role === 'user'
+                          ? isDarkMode
+                            ? 'bg-primary/20 text-white rounded-tr-md'
+                            : 'bg-primary/10 text-gray-900 rounded-tr-md'
+                          : isDarkMode
+                            ? 'bg-white/5 text-gray-200 rounded-tl-md border border-white/5'
+                            : 'bg-white text-gray-800 rounded-tl-md border border-gray-100 shadow-sm'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                    {msg.role === 'user' && (
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}
+                      >
+                        <User className={`w-4 h-4 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+
             <div
               className={`relative rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/[0.03] border-white/10 focus-within:border-primary/50' : 'bg-white border-gray-200 focus-within:border-primary/50 shadow-sm'}`}
             >
@@ -128,23 +194,23 @@ export default function Home() {
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Tulis kebutuhan PC-mu dalam bahasa Indonesia atau English..."
-                    rows={3}
+                    placeholder="Tanya apa pun tentang PC atau minta rekomendasi build..."
+                    rows={2}
                     className="w-full bg-transparent text-base resize-none focus:outline-none placeholder:text-gray-500"
                     disabled={loading}
                   />
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex flex-wrap gap-2">
-                      {EXAMPLE_PROMPTS.slice(0, 2).map((ex, i) => (
+                      {QA_PROMPTS.slice(0, 2).map((ex, i) => (
                         <button
                           key={i}
                           onClick={() => {
                             setPrompt(ex);
                             setError('');
                           }}
-                          className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                          className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                         >
-                          {ex.length > 35 ? ex.slice(0, 35) + '...' : ex}
+                          {ex}
                         </button>
                       ))}
                     </div>
@@ -158,8 +224,8 @@ export default function Home() {
                           : 'bg-primary text-black hover:opacity-90 shadow-lg shadow-primary/20'
                       }`}
                     >
-                      <Send className="w-4 h-4" />
-                      Rakit dengan AI
+                      {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {chatHistory.length > 0 ? 'Tanya AI' : 'Tanya / Rakit'}
                     </motion.button>
                   </div>
                 </div>
@@ -174,14 +240,14 @@ export default function Home() {
             )}
 
             <div className="flex flex-wrap gap-2 mt-2 justify-center">
-              {EXAMPLE_PROMPTS.slice(2).map((ex, i) => (
+              {[...EXAMPLE_PROMPTS, ...QA_PROMPTS.slice(2)].map((ex, i) => (
                 <button
-                  key={i + 2}
+                  key={i}
                   onClick={() => {
                     setPrompt(ex);
                     setError('');
                   }}
-                  className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                 >
                   {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}
                 </button>
