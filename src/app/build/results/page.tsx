@@ -42,7 +42,8 @@ import Link from 'next/link';
 import { predictPerformance, generateNarrative } from '@/lib/recommendation-engine';
 import { useTheme } from '@/hooks/use-theme';
 import ThemeToggle from '@/components/ThemeToggle';
-import { findCpuBenchmark, findGpuBenchmark, suggestBottleneckFix, analyzeBottleneck, estimateFpsFromPrice } from '@/data/benchmarks';
+import { findCpuBenchmark, findGpuBenchmark, findRamImpact, suggestBottleneckFix, analyzeBottleneck, estimateFpsFromPrice } from '@/data/benchmarks';
+import { getUpgradeImpact } from '@/lib/recommendation-engine';
 
 const TYPE_ICONS: Record<string, any> = {
   CPU: Cpu,
@@ -403,7 +404,18 @@ export default function BuildResults() {
           } else if (componentType === 'GPU') {
             // No filter needed, all GPUs work with any platform
           }
-          setSelectorComponents(filtered);
+          const currentComponent = build[componentType];
+          const withImpact = filtered.map((c: any) => {
+            if (!currentComponent || currentComponent.id === c.id) return { ...c, _impact: null };
+            const impact = getUpgradeImpact(
+              { name: currentComponent.name, type: componentType as any },
+              { name: c.name, type: componentType as any },
+              activeBuild?.resolution || '1080p',
+              build.GPU?.name,
+            );
+            return { ...c, _impact: impact };
+          });
+          setSelectorComponents(withImpact);
         }
       }
     } catch {}
@@ -968,6 +980,11 @@ export default function BuildResults() {
                                   <span className="truncate flex-1 text-left">{upgrade.suggestedPart.name}</span>
                                   <span className="shrink-0">+Rp {upgrade.priceDiff.toLocaleString('id-ID')}</span>
                                 </button>
+                                {upgrade.benefit && (
+                                  <div className="text-[8px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/5 text-emerald-500/70 text-center">
+                                    {upgrade.benefit}
+                                  </div>
+                                )}
                               </div>
                             ) : null}
                           </div>
@@ -1142,7 +1159,6 @@ export default function BuildResults() {
                       {isProductivityBuild ? (
                         <div className="px-4 py-3 text-center text-[10px] opacity-40">
                           Game FPS tidak relevan untuk build {requestData?.purpose === 'Office' ? 'kantor' : 'coding'}.
-                          Fokus pada performa komputasi di panel sebelah.
                         </div>
                       ) : (
                         <>
@@ -1319,6 +1335,45 @@ export default function BuildResults() {
                     Rp {(totalPrice / 1000000).toFixed(1)}<span className="text-xs opacity-40">jt</span>
                   </div>
                 </div>
+                {build.RAM && (() => {
+                  const ramName = build.RAM.name || '';
+                  const ramSpeed = extractRamSpeed(ramName);
+                  const ramType = build.RAM.ramType || '';
+                  const ramCapacity = (ramName.match(/(\d+)\s*GB/i)?.[1] || '');
+                  const ramImpact = findRamImpact(ramName);
+                  const ramPct = ramImpact ? Math.round((ramImpact.gamingFpsMultiplier - 1) * 100) : 0;
+                  const ramProdPct = ramImpact ? Math.round((ramImpact.productivityMultiplier - 1) * 100) : 0;
+                  return (
+                    <div className="p-3 rounded-xl border border-white/5 bg-white/[0.03]">
+                      <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">RAM</div>
+                      <div className="text-lg font-black mt-1 truncate" title={ramName}>
+                        {ramType}{ramSpeed ? ` ${ramSpeed}` : ''}
+                      </div>
+                      {ramCapacity && (
+                        <div className="text-[10px] font-bold opacity-50 mt-0.5">{ramCapacity} GB</div>
+                      )}
+                      {ramImpact && (
+                        <div className="mt-1.5 space-y-0.5">
+                          <div className="flex items-center justify-between text-[9px]">
+                            <span className="opacity-50">Gaming</span>
+                            <span className={`font-bold ${ramPct >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                              {ramPct >= 0 ? '+' : ''}{ramPct}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[9px]">
+                            <span className="opacity-50">Produktivitas</span>
+                            <span className={`font-bold ${ramProdPct >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                              {ramProdPct >= 0 ? '+' : ''}{ramProdPct}%
+                            </span>
+                          </div>
+                          <div className="text-[7px] opacity-30 mt-1 leading-tight">
+                            Baseline DDR4-3200. RAM lebih cepat = FPS lebih tinggi & rendering lebih cepat.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </section>
 
@@ -1511,6 +1566,11 @@ export default function BuildResults() {
                                 {comp.wattage && <span>{comp.wattage}W</span>}
                                 {comp.tdp && <span>{comp.tdp}W TDP</span>}
                               </div>
+                              {comp._impact?.benefit && !isSelected && current && (
+                                <div className="mt-1 text-[8px] leading-tight font-bold text-primary/70 line-clamp-2">
+                                  {comp._impact.benefit}
+                                </div>
+                              )}
                             </div>
                             <div className="text-right shrink-0">
                               <div className={`text-sm font-black ${isSelected ? 'text-emerald-500' : 'text-primary'}`}>

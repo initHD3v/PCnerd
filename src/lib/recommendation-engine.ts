@@ -510,16 +510,20 @@ export function getUpgradeImpact(
     }
   }
 
-  if (currentPart.type === 'RAM' || currentPart.type === 'RAM') {
+  if (currentPart.type === 'RAM') {
     const currentRam = findRamImpact(currentPart.name);
     const suggestedRam = findRamImpact(suggestedPart.name);
     if (currentRam && suggestedRam) {
-      const fpsUplift = Math.round((suggestedRam.gamingFpsMultiplier - currentRam.gamingFpsMultiplier) * 100);
+      const fpsUpliftPct = (suggestedRam.gamingFpsMultiplier - currentRam.gamingFpsMultiplier);
+      const baseFps = 80;
+      const currentEst = Math.round(baseFps * currentRam.gamingFpsMultiplier);
+      const suggestedEst = Math.round(baseFps * suggestedRam.gamingFpsMultiplier);
+      const upliftPercent = Math.round(fpsUpliftPct * 100);
       return {
-        currentFps: Math.round(currentRam.gamingFpsMultiplier * 100),
-        newFps: Math.round(suggestedRam.gamingFpsMultiplier * 100),
-        upliftPercent: fpsUplift,
-        benefit: `Upgrade RAM: ${currentRam.speed} → ${suggestedRam.speed}. Gaming ${fpsUplift > 0 ? '+' : ''}${fpsUplift}% FPS.`,
+        currentFps: currentEst,
+        newFps: suggestedEst,
+        upliftPercent,
+        benefit: `RAM: ${currentRam.speed} → ${suggestedRam.speed}. Gaming ${upliftPercent > 0 ? '+' : ''}${upliftPercent}% (${currentEst}→${suggestedEst} FPS).`,
       };
     }
   }
