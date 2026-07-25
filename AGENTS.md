@@ -122,26 +122,16 @@
 
 ## Status Pekerjaan
 
-### Selesai (25 Jul 2026)
+### Selesai (26 Jul 2026)
 
-- [x] **LM Studio fix** — system prompt merged into user message (Mistral 7B tidak support `system` role)
-- [x] **LLM prompt improvement** — prompt narrative menyertakan data benchmark FPS, PassMark, RAM impact
-- [x] **Streaming LLM response** — SSE di-wire ke client: narrative muncul real-time karakter per karakter
-- [x] **Multi-factor component scoring** — skor (compatibility 30%, performance 40%, value 20%, reliability 10%) ditampilkan sebagai bar di card komponen + tooltip breakdown
-- [x] **Hapus/restore/ganti komponen** — remove overlay, restore, replace modal dengan validasi kompatibilitas
-- [x] **Async LLM narrative** — fetch `/api/ai/narrative` async saat user mengubah build, cache per hash
-- [x] **RAM performance impact** — RAM Impact card di Technical Overview (speed, kapasitas, gaming%, productivity%)
-- [x] **Filter/Sort di modal ganti** — search by nama/brand/socket/ramType, sort by harga/nama, brand filter
-- [x] **Upgrade impact di modal** — tiap kandidat di modal ganti komponen menampilkan FPS bar + benefit text
-- [x] **Bottleneck analysis refinement** — visual gauge CPU↔Seimbang↔GPU, rasio numerik, zona seimbang per resolusi
-- [x] **Upgrade impact calculator** — FPS uplift konkret (current→new FPS) dengan bar visual di modal
+- [x] **AI quality improvement (7 fixes)**:
 
-### Files Touched (25 Jul 2026)
-
-| File                                | Change                                                                                                                                               |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/llm.ts`                    | LM Studio system→user merge, streaming, max_tokens 4096                                                                                              |
-| `src/lib/build-service.ts`          | Multi-factor scoring in BuildResult, componentScores returned                                                                                        |
-| `src/lib/recommendation-engine.ts`  | RAM `getUpgradeImpact` fix (real FPS instead of multiplier×100)                                                                                      |
-| `src/app/build/results/page.tsx`    | Streaming narrative, score bars + tooltip, filter/sort modal, RAM in Technical Overview, upgrade benefit in modal, bottleneck gauge, FPS impact bars |
-| `src/app/api/ai/narrative/route.ts` | SSE streaming endpoint                                                                                                                               |
+| # | Fix | File |
+|---|-----|------|
+| 1 | Translate `PROMPT_SYSTEM_BUILD` ke Bahasa Indonesia | `src/app/api/ai/build-prompt/route.ts` |
+| 2 | Unify narrative system prompt (recommendation-engine + narrative/route) | `src/app/api/ai/narrative/route.ts` |
+| 3 | Anthropic streaming `max_tokens: 1024 → 4096` | `src/lib/llm.ts` |
+| 4 | RAM base FPS 80 → actual GPU FPS from build | `src/lib/recommendation-engine.ts` |
+| 5 | Remove dead `preferredGpu`/`preferredCpu` prompt fields | `src/app/api/ai/build-prompt/route.ts` |
+| 6 | Add `AbortController` timeout to all LLM calls (30s non-streaming, 60s streaming) | `src/lib/llm.ts` |
+| 7 | Truncate conversation history to ~4000 chars | `src/app/api/ai/build-prompt/route.ts` |

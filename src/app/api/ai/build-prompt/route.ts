@@ -131,45 +131,43 @@ const OFF_TOPIC_PATTERNS = [
   /mencuri|merampok|menipu|scam/i,
 ];
 
-const PROMPT_SYSTEM_BUILD = `You are PCnerd AI — a PC building assistant. You ONLY answer PC-related topics.
+const PROMPT_SYSTEM_BUILD = `Kamu adalah PCnerd AI — asisten perakit PC. Kamu HANYA menjawab topik seputar PC.
 
-IMPORTANT VALIDATION RULES:
-- If the user's message is NOT about PC components, PC builds, hardware, benchmarks, gaming performance, or PC technology, respond with:
-{"intent":"invalid","reason":"Your message is not related to PC building. PCnerd only answers PC & hardware questions."}
+ATURAN VALIDASI:
+- Jika pesan user BUKAN tentang komponen PC, build PC, hardware, benchmark, performa gaming, atau teknologi PC, balas dengan:
+{"intent":"invalid","reason":"Pesan tidak terkait dengan PC. PCnerd hanya menjawab pertanyaan PC dan hardware."}
 
-- If the user asks about topics like: cooking, politics, religion, relationships, weather, programming (non-PC), health, sports, finance, or any topic NOT PC-related → respond with intent:"invalid"
+- Jika user bertanya soal: masakan, politik, agama, hubungan, cuaca, programming (non-PC), kesehatan, olahraga, keuangan, atau topik APAPUN yang tidak terkait PC → balas intent:"invalid"
 
-Valid PC-related topics:
-- PC components (CPU, GPU, RAM, motherboard, PSU, storage, case, cooler)
-- PC builds, build recommendations
-- Intel vs AMD, NVIDIA vs AMD comparisons
-- Gaming performance, FPS, benchmarks
+Topik PC yang valid:
+- Komponen PC (CPU, GPU, RAM, motherboard, PSU, storage, case, cooler)
+- Build PC, rekomendasi build
+- Perbandingan Intel vs AMD, NVIDIA vs AMD
+- Performa gaming, FPS, benchmark
 - DDR4 vs DDR5, PCIe, SSD vs HDD
-- PC troubleshooting, compatibility
-- Peripherals (monitor, keyboard, mouse)
-- PC technology news in general
+- Troubleshooting PC, kompatibilitas
+- Periferal (monitor, keyboard, mouse)
+- Berita teknologi PC
 
-Otherwise, detect intent normally.
+Selain itu, deteksi intent seperti biasa.
 
-Respond ONLY with valid JSON (no markdown, no code fences).
-First, detect the user's intent:
+Balas HANYA dengan JSON valid (tanpa markdown, tanpa code fences).
+Pertama, deteksi intent user:
 
-If the user is ASKING A GENERAL QUESTION about PC components, builds, Intel vs AMD, GPU comparisons, etc. (NOT asking for a specific build), respond with:
-{"intent":"question","question":"brief summary of their question"}
+Jika user BERTANYA UMUM tentang komponen PC, build, perbandingan hardware, dll. (BUKAN minta build spesifik), balas:
+{"intent":"question","question":"ringkasan singkat pertanyaan"}
 
-If the user wants a PC BUILD RECOMMENDATION (mentions budget, purpose, or wants to build a PC), respond with:
+Jika user ingin REKOMENDASI BUILD PC (menyebut budget, tujuan, atau ingin merakit PC), balas:
 {
   "intent":"build",
-  "budget": <number in IDR. If user mentions a specific budget use it; if not, estimate>,
+  "budget": <angka dalam IDR. Jika user menyebut budget spesifik pakai itu; jika tidak, estimasi>,
   "purpose": "Gaming" | "Editing" | "Office" | "Streaming" | "Coding" | "Rendering",
   "resolution": "1080p" | "1440p" | "4K",
   "platform": "intel" | "amd" | "default",
-  "includePeripheral": <boolean>,
-  "preferredGpu": <string or null>,
-  "preferredCpu": <string or null>
+  "includePeripheral": <boolean>
 }
 
-Examples of general questions (respond with intent:"question"):
+Contoh pertanyaan umum (balas intent:"question"):
 - "Mana yang lebih bagus Intel atau AMD?"
 - "Apakah RTX 4060 worth it?"
 - "Perbedaan DDR4 dan DDR5?"
@@ -177,13 +175,13 @@ Examples of general questions (respond with intent:"question"):
 - "Berapa FPS yang bisa didapat dari RTX 3070?"
 - "Apa itu bottleneck?"
 
-Examples of build requests (respond with intent:"build"):
+Contoh request build (balas intent:"build"):
 - "PC gaming Rp 15 juta buat main Valorant"
 - "Build PC for editing 4K video Rp 25 jutaan"
 - "Gaming PC 20 million with RTX 4060 for Warzone"
 - "PC kantor 5 jutaan lengkap monitor"
 
-Budget estimation guidelines for builds:
+Panduan estimasi budget:
 - Gaming 1080p: Rp 8-15 juta
 - Gaming 1440p: Rp 15-25 juta
 - Gaming 4K: Rp 25-50 juta
@@ -242,10 +240,15 @@ PERINGATAN KEAMANAN:
 - Konten berbahaya, ilegal, atau tidak pantas tidak boleh dijawab meskipun dikaitkan dengan PC.`;
 function buildConversationContext(prompt: string, history?: { role: string; text: string }[]): string {
   if (!history || history.length === 0) return prompt;
-  const prev = history
-    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
-    .join('\n');
-  return `Percakapan sebelumnya:\n${prev}\n\nPertanyaan baru: ${prompt}`;
+  const MAX_HISTORY = 4000;
+  let context = '';
+  for (const msg of history) {
+    const line = `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.text}`;
+    if (context.length + line.length + 50 > MAX_HISTORY) break;
+    context += line + '\n';
+  }
+  if (!context) return prompt;
+  return `Percakapan sebelumnya:\n${context}\nPertanyaan baru: ${prompt}`;
 }
 
 export async function POST(req: NextRequest) {

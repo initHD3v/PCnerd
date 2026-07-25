@@ -553,7 +553,8 @@ export function getUpgradeImpact(
     const suggestedRam = findRamImpact(suggestedPart.name);
     if (currentRam && suggestedRam) {
       const fpsUpliftPct = suggestedRam.gamingFpsMultiplier - currentRam.gamingFpsMultiplier;
-      const baseFps = 80;
+      const gpuBench = gpuName ? findGpuBenchmark(gpuName) : null;
+      const baseFps = gpuBench ? (resolution === '4K' ? gpuBench.fps4k : resolution === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p) : 80;
       const currentEst = Math.round(baseFps * currentRam.gamingFpsMultiplier);
       const suggestedEst = Math.round(baseFps * suggestedRam.gamingFpsMultiplier);
       const upliftPercent = Math.round(fpsUpliftPct * 100);

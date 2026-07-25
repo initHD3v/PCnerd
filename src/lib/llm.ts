@@ -63,8 +63,16 @@ export async function callLLM(systemPrompt: string, userPrompt: string): Promise
   }
 }
 
+const LLM_TIMEOUT = 30_000;
+const LLM_STREAM_TIMEOUT = 60_000;
+
+function timeoutSignal(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
+
 async function callLMStudio(config: LLMConfig, system: string, user: string): Promise<string> {
   const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    signal: timeoutSignal(LLM_TIMEOUT),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -89,6 +97,7 @@ async function callGemini(config: LLMConfig, system: string, user: string): Prom
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`,
     {
+      signal: timeoutSignal(LLM_TIMEOUT),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -108,6 +117,7 @@ async function callGemini(config: LLMConfig, system: string, user: string): Prom
 
 async function callOpenAI(config: LLMConfig, system: string, user: string): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    signal: timeoutSignal(LLM_TIMEOUT),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -133,6 +143,7 @@ async function callOpenAI(config: LLMConfig, system: string, user: string): Prom
 
 async function callAnthropic(config: LLMConfig, system: string, user: string): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
+    signal: timeoutSignal(LLM_TIMEOUT),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -171,6 +182,7 @@ export async function* callLLMStream(systemPrompt: string, userPrompt: string): 
 
 async function* streamLMStudio(config: LLMConfig, system: string, user: string): AsyncGenerator<string> {
   const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    signal: timeoutSignal(LLM_STREAM_TIMEOUT),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -217,6 +229,7 @@ async function* streamGemini(config: LLMConfig, system: string, user: string): A
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?key=${config.apiKey}&alt=sse`,
     {
+      signal: timeoutSignal(LLM_STREAM_TIMEOUT),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -256,6 +269,7 @@ async function* streamGemini(config: LLMConfig, system: string, user: string): A
 
 async function* streamOpenAI(config: LLMConfig, system: string, user: string): AsyncGenerator<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    signal: timeoutSignal(LLM_STREAM_TIMEOUT),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -303,6 +317,7 @@ async function* streamOpenAI(config: LLMConfig, system: string, user: string): A
 
 async function* streamAnthropic(config: LLMConfig, system: string, user: string): AsyncGenerator<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
+    signal: timeoutSignal(LLM_STREAM_TIMEOUT),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -313,7 +328,7 @@ async function* streamAnthropic(config: LLMConfig, system: string, user: string)
       model: config.model,
       system,
       messages: [{ role: 'user', content: user }],
-      max_tokens: 1024,
+      max_tokens: 4096,
       stream: true,
     }),
   });
