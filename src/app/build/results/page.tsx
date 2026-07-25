@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu,
   Gamepad2,
@@ -31,6 +31,11 @@ import {
   Mouse,
   Lightbulb,
   Printer,
+  Trash2,
+  Loader2,
+  X,
+  Check,
+  Database,
 } from 'lucide-react';
 import Link from 'next/link';
 import { predictPerformance, generateNarrative } from '@/lib/recommendation-engine';
@@ -80,6 +85,11 @@ export default function BuildResults() {
   const [data, setData] = useState<any>(null);
   const [activeTier, setActiveTier] = useState<TierKey>('max');
   const [appliedUpgrades, setAppliedUpgrades] = useState<Record<string, any>>({});
+  const [customBuild, setCustomBuild] = useState<Record<string, any>>({});
+  const [removedComponents, setRemovedComponents] = useState<Record<string, any>>({});
+  const [selectorOpen, setSelectorOpen] = useState<string | null>(null);
+  const [selectorComponents, setSelectorComponents] = useState<any[]>([]);
+  const [selectorLoading, setSelectorLoading] = useState(false);
   const [requestData, setRequestData] = useState<any>(null);
   const [gameQuality, setGameQuality] = useState<'LOW' | 'Medium' | 'High' | 'Ultra'>('Ultra');
   const [gameType, setGameType] = useState<'AAA Games' | 'E-Sports'>('AAA Games');
@@ -129,6 +139,8 @@ export default function BuildResults() {
   const handleSwitchTier = (tier: TierKey) => {
     setActiveTier(tier);
     setAppliedUpgrades({});
+    setCustomBuild({});
+    setRemovedComponents({});
   };
 
   const estimateGpuTdp = useCallback((gpu: any) => {
@@ -147,6 +159,12 @@ export default function BuildResults() {
     for (const [type, part] of Object.entries(appliedUpgrades)) {
       if (part && build[type]) build[type] = part;
     }
+    for (const [type, part] of Object.entries(customBuild)) {
+      build[type] = part;
+    }
+    for (const type of Object.keys(removedComponents)) {
+      build[type] = null;
+    }
     const totalPrice = Object.values(build).reduce((s: number, p: any) => s + (p?.price || 0), 0);
     const performance = predictPerformance(
       build.GPU?.price || 0,
@@ -163,20 +181,127 @@ export default function BuildResults() {
     const cpuBench = findCpuBenchmark(build.CPU?.name || '');
     const gpuBench = findGpuBenchmark(build.GPU?.name || '');
     const bottleneck = analyzeBottleneck(cpuBench, gpuBench, activeBuild.resolution || '1080p');
+    const hasChanges = Object.keys(appliedUpgrades).length > 0 || Object.keys(customBuild).length > 0 || Object.keys(removedComponents).length > 0;
     const narrative = generateNarrative(
       build,
       { budget: activeBuild.targetBudget, purpose: requestData?.purpose || 'Gaming', resolution: activeBuild.resolution || '1080p', includePeripheral: false, platform: requestData?.platform || 'default' },
-      Object.keys(appliedUpgrades).length > 0,
+      hasChanges,
     );
     return { build, totalPrice, performance, technical: { totalTdp, psuWattage, isPsuSafe, bottleneckStatus: bottleneck.status }, narrative };
-  }, [activeBuild, appliedUpgrades, requestData, estimateGpuTdp]);
+  }, [activeBuild, appliedUpgrades, customBuild, removedComponents, requestData, estimateGpuTdp]);
 
-  const hasUpgrades = Object.keys(appliedUpgrades).length > 0;
+  const hasUpgrades = Object.keys(appliedUpgrades).length > 0 || Object.keys(customBuild).length > 0 || Object.keys(removedComponents).length > 0;
   const build = upgradeState?.build ?? activeBuild?.build ?? {};
   const totalPrice = upgradeState?.totalPrice ?? activeBuild?.totalPrice ?? 0;
   const performance = upgradeState?.performance ?? activeBuild?.performance ?? [];
   const technical = upgradeState?.technical ?? activeBuild?.technical ?? {};
   const narrative = hasUpgrades ? upgradeState?.narrative ?? {} : activeBuild?.narrative ?? {};
+
+  const handleRemove = useCallback((componentType: string) => {
+    const currentBuild = upgradeState?.build ?? activeBuild?.build ?? {};
+    const current = currentBuild[componentType];
+    if (current) {
+      setRemovedComponents((prev) => ({ ...prev, [componentType]: current }));
+      setCustomBuild((prev) => {
+        const next = { ...prev };
+        delete next[componentType];
+        return next;
+      });
+      setAppliedUpgrades((prev) => {
+        const next = { ...prev };
+        delete next[componentType];
+        return next;
+      });
+    }
+  }, [activeBuild, upgradeState]);
+
+  const handleRestore = useCallback((componentType: string) => {
+    setRemovedComponents((prev) => {
+      const next = { ...prev };
+      delete next[componentType];
+      return next;
+    });
+  }, []);
+
+  const openComponentSelector = useCallback(async (componentType: string) => {
+    setSelectorOpen(componentType);
+    setSelectorLoading(true);
+    try {
+      const res = await fetch(`/api/admin/components`);
+      if (res.ok) {
+        const all = await res.json();
+        if (componentType === 'PERIPHERAL') {
+          setSelectorComponents(all.filter((c: any) => ['MONITOR','KEYBOARD','MOUSE','HEADSET','SPEAKER'].includes(c.type)));
+        } else {
+          let filtered = all.filter((c: any) => c.type === componentType);
+          const build = upgradeState?.build ?? activeBuild?.build ?? {};
+          const mobo = build.MOTHERBOARD;
+          const cpu = build.CPU;
+          if (componentType === 'CPU') {
+            const platform = cpu?.socket || '';
+            if (platform) {
+              const allowedSockets = platform.startsWith('AM') || platform.startsWith('FM') || platform.startsWith('sTRX')
+                ? ['AM4', 'AM5', 'FM2', 'FM1', 'sTRX4', 'sWRX8']
+                : ['LGA1700', 'LGA1851', 'LGA1200', 'LGA1151', 'LGA1150', 'LGA2066', 'LGA3647', 'LGA4677'];
+              if (allowedSockets.includes(platform)) {
+                filtered = filtered.filter((c: any) => c.socket === platform);
+              }
+            }
+          } else if (componentType === 'MOTHERBOARD') {
+            if (cpu?.socket) {
+              filtered = filtered.filter((c: any) => c.socket === cpu.socket);
+            }
+          } else if (componentType === 'RAM') {
+            if (mobo?.ramType) {
+              filtered = filtered.filter((c: any) => c.ramType === mobo.ramType);
+            }
+          } else if (componentType === 'GPU') {
+            // No filter needed, all GPUs work with any platform
+          }
+          setSelectorComponents(filtered);
+        }
+      }
+    } catch {}
+    setSelectorLoading(false);
+  }, [activeBuild, upgradeState]);
+
+  const handleSelectComponent = useCallback((componentType: string, component: any) => {
+    const currentBuild = upgradeState?.build ?? activeBuild?.build ?? {};
+    const current = currentBuild[componentType];
+    if (current?.id === component.id) {
+      setSelectorOpen(null);
+      return;
+    }
+    setCustomBuild((prev) => ({ ...prev, [componentType]: component }));
+    if (componentType === 'CPU' || componentType === 'MOTHERBOARD') {
+      setAppliedUpgrades((prev) => {
+        const next = { ...prev };
+        delete next[componentType];
+        return next;
+      });
+    }
+    if (removedComponents[componentType]) {
+      setRemovedComponents((prev) => {
+        const next = { ...prev };
+        delete next[componentType];
+        return next;
+      });
+    }
+    setSelectorOpen(null);
+  }, [activeBuild, upgradeState, removedComponents]);
+
+  const handleResetCustom = useCallback((componentType: string) => {
+    setCustomBuild((prev) => {
+      const next = { ...prev };
+      delete next[componentType];
+      return next;
+    });
+    setAppliedUpgrades((prev) => {
+      const next = { ...prev };
+      delete next[componentType];
+      return next;
+    });
+  }, []);
 
   const handleUpgrade = useCallback((componentType: string, upgrade: any) => {
     setAppliedUpgrades((prev) => ({ ...prev, [componentType]: upgrade.suggestedPart }));
@@ -570,6 +695,8 @@ export default function BuildResults() {
                     const Icon = TYPE_ICONS[type] || Box;
                     const upgrade = findUpgradeForType(type);
                     const isUpgraded = !!appliedUpgrades[type];
+                    const isCustom = !!customBuild[type];
+                    const isRemoved = !!removedComponents[type];
                     return (
                       <motion.div
                         layout
@@ -577,14 +704,27 @@ export default function BuildResults() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35, delay: idx * 0.06, ease: 'easeOut' }}
-                        className={`component-card ${isUpgraded ? (isDark ? '!border-emerald-500/30' : '!border-emerald-400') : ''}`}
+                        className={`component-card group/card ${isUpgraded || isCustom ? (isDark ? '!border-emerald-500/30' : '!border-emerald-400') : ''}`}
                       >
-                        {isUpgraded && (
+                        {(isUpgraded || isCustom) && (
                           <div className="absolute -top-2.5 -right-2.5 px-2 py-0.5 rounded-full bg-emerald-500 text-[8px] font-black text-white tracking-wider shadow-lg z-10">
-                            UPGRADED
+                            {isCustom ? 'CUSTOM' : 'UPGRADED'}
                           </div>
                         )}
-                        <div className="flex items-start gap-3">
+                        {isRemoved && (
+                          <div className="absolute inset-0 rounded-2xl bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-gray-400 mb-2">Komponen dihapus</div>
+                              <button
+                                onClick={() => handleRestore(type)}
+                                className="px-4 py-2 bg-primary text-black rounded-lg text-xs font-bold hover:opacity-90 transition-all"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5 inline mr-1" /> Restore
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        <div className={`flex items-start gap-3 ${isRemoved ? 'opacity-30' : ''}`}>
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 group-hover:bg-primary/20 transition-colors">
                             <Icon className="w-5 h-5 text-primary" />
                           </div>
@@ -615,7 +755,7 @@ export default function BuildResults() {
                             </div>
 
                             {isUpgraded ? (
-                              <div className="mt-3 pt-3 border-t border-dashed border-white/10">
+                              <div className="mt-3 pt-3 border-t border-dashed border-white/10 space-y-1.5">
                                 <button
                                   onClick={() => handleReset(type)}
                                   className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
@@ -625,7 +765,7 @@ export default function BuildResults() {
                                 </button>
                               </div>
                             ) : upgrade ? (
-                              <div className="mt-3 pt-3 border-t border-dashed border-white/10">
+                              <div className="mt-3 pt-3 border-t border-dashed border-white/10 space-y-1.5">
                                 <button
                                   onClick={() => handleUpgrade(type, upgrade)}
                                   className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
@@ -637,12 +777,32 @@ export default function BuildResults() {
                               </div>
                             ) : null}
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1">
                             <div className="text-sm font-black text-primary">
                               Rp {part.price.toLocaleString('id-ID')}
                             </div>
+                            {!isRemoved && (
+                              <div className="flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleRemove(type)}
+                                  className="w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"
+                                  title="Hapus komponen"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
+                        {!isRemoved && (
+                          <button
+                            onClick={() => openComponentSelector(type)}
+                            className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-bold transition-all bg-white/5 text-gray-400 hover:bg-white/10 hover:text-primary border border-dashed border-white/10"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                            Ganti {TYPE_LABELS[type] || type}
+                          </button>
+                        )}
                         <a
                           href={`https://www.google.com/search?q=${encodeURIComponent(part.name + ' harga Indonesia')}`}
                           target="_blank"
@@ -994,11 +1154,119 @@ export default function BuildResults() {
 
             {/* ── Peripherals ── */}
             {[build.MONITOR, build.KEYBOARD, build.MOUSE].some(Boolean) && (
-              <PeripheralsCard build={build} isDark={isDark} />
+              <PeripheralsCard build={build} isDark={isDark} onRemove={handleRemove} onRestore={handleRestore} isRemoved={removedComponents} onReplace={openComponentSelector} />
             )}
           </div>
         </div>
       </main>
+
+      {/* ── Component Selector Modal ── */}
+      <AnimatePresence>
+        {selectorOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectorOpen(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={`relative w-full max-w-2xl border rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col ${isDark ? 'bg-black border-white/10' : 'bg-white border-gray-200'}`}
+            >
+              <div className={`px-6 py-4 border-b flex justify-between items-center shrink-0 ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
+                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Pilih {TYPE_LABELS[selectorOpen] || selectorOpen}
+                </h3>
+                <button onClick={() => setSelectorOpen(null)} className="text-gray-500 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {selectorLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : selectorComponents.length === 0 ? (
+                  <div className="text-center py-20 text-gray-500">
+                    <Database className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">Tidak ada komponen yang kompatibel ditemukan.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectorComponents.map((comp: any) => {
+                      const build2 = upgradeState?.build ?? activeBuild?.build ?? {};
+                      const current = build2[selectorOpen];
+                      const isSelected = current?.id === comp.id;
+                      const priceDiff = current ? comp.price - current.price : comp.price;
+                      const Icon = TYPE_ICONS[selectorOpen] || Box;
+                      return (
+                        <button
+                          key={comp.id}
+                          onClick={() => handleSelectComponent(selectorOpen, comp)}
+                          disabled={isSelected}
+                          className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-4 ${
+                            isSelected
+                              ? isDark ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-emerald-400 bg-emerald-50'
+                              : isDark
+                                ? 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
+                                : 'border-gray-100 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <Icon className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                              {comp.name}
+                            </div>
+                            <div className="text-[10px] opacity-40 mt-0.5 flex flex-wrap gap-x-3">
+                              <span>{comp.brand}</span>
+                              {comp.socket && <span>{comp.socket}</span>}
+                              {comp.ramType && <span>{comp.ramType}</span>}
+                              {comp.wattage && <span>{comp.wattage}W</span>}
+                              {comp.tdp && <span>{comp.tdp}W TDP</span>}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className={`text-sm font-black ${isSelected ? 'text-emerald-500' : 'text-primary'}`}>
+                              Rp {comp.price.toLocaleString('id-ID')}
+                            </div>
+                            {!isSelected && current && (
+                              <div className={`text-[9px] font-bold ${priceDiff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                {priceDiff > 0 ? '+' : ''}Rp {priceDiff.toLocaleString('id-ID')}
+                              </div>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className={`px-6 py-3 border-t flex justify-between items-center shrink-0 ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
+                <span className="text-[10px] opacity-40">
+                  {selectorComponents.length} komponen tersedia
+                </span>
+                <button
+                  onClick={() => setSelectorOpen(null)}
+                  className="px-4 py-2 rounded-lg text-xs font-bold border border-white/10 hover:bg-white/5 transition-all"
+                >
+                  Tutup
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1092,7 +1360,7 @@ function BottleneckCard({ build, technical, isDark, resolution }: { build: any; 
   );
 }
 
-function PeripheralsCard({ build, isDark }: { build: any; isDark: boolean }) {
+function PeripheralsCard({ build, isDark, onRemove, onRestore, isRemoved, onReplace }: { build: any; isDark: boolean; onRemove: (t: string) => void; onRestore: (t: string) => void; isRemoved: Record<string, any>; onReplace: (t: string) => void }) {
   const peripheralEntries = Object.entries(build)
     .filter(([type]) => ['MONITOR', 'KEYBOARD', 'MOUSE'].includes(type))
     .filter(([, part]) => part);
@@ -1110,18 +1378,49 @@ function PeripheralsCard({ build, isDark }: { build: any; isDark: boolean }) {
       <div className="space-y-3">
         {peripheralEntries.map(([type, part]: [string, any]) => {
           const Icon = TYPE_ICONS[type] || Box;
+          const removed = !!isRemoved[type];
           return (
-            <div key={type} className="flex items-center gap-3">
+            <div key={type} className={`flex items-center gap-3 group/peripheral ${removed ? 'opacity-30' : ''}`}>
               <div
                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}
               >
                 <Icon className="w-4 h-4 opacity-60" />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">{TYPE_LABELS[type]}</div>
-                <div className="text-xs font-bold truncate">{part.name}</div>
-              </div>
-              <div className="text-xs font-black text-primary">Rp {part.price.toLocaleString('id-ID')}</div>
+              {removed ? (
+                <div className="flex-1 min-w-0">
+                  <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">{TYPE_LABELS[type]}</div>
+                  <button
+                    onClick={() => onRestore(type)}
+                    className="text-xs font-bold text-primary hover:underline mt-0.5 flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Restore
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">{TYPE_LABELS[type]}</div>
+                    <div className="text-xs font-bold truncate">{part.name}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-xs font-black text-primary">Rp {part.price.toLocaleString('id-ID')}</div>
+                    <button
+                      onClick={() => onRemove(type)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all opacity-0 group-hover/peripheral:opacity-100"
+                      title="Hapus peripheral"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                    <button
+                      onClick={() => onReplace(type)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold bg-white/5 text-gray-400 hover:bg-white/10 hover:text-primary transition-all opacity-0 group-hover/peripheral:opacity-100"
+                      title="Ganti peripheral"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}

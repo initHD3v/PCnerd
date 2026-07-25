@@ -543,6 +543,8 @@ export async function generateNarrativeWithLLM(
     const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU.name) : null;
     const cpuBench = build.CPU?.name ? findCpuBenchmark(build.CPU.name) : null;
 
+    const totalPrice = Object.values(build || {}).reduce((s: number, p: any) => s + (p?.price || 0), 0);
+
     let benchmarkText = '';
     if (gpuBench) {
       benchmarkText += `\nGPU Benchmark (FPS): 1080p AAA=${gpuBench.fps1080p} / E-Sports=${gpuBench.fpsEsports}, 1440p AAA=${gpuBench.fps1440p}, 4K AAA=${gpuBench.fps4k}.`;
@@ -554,20 +556,36 @@ export async function generateNarrativeWithLLM(
     const prompt = `Racikan PC untuk ${request.purpose} budget Rp ${request.budget.toLocaleString('id-ID')}:
 
 ${componentsText}
-${benchmarkText}
+Total: Rp ${totalPrice.toLocaleString('id-ID')} (${totalPrice > request.budget ? 'over budget' : `${Math.round((totalPrice / request.budget) * 100)}% terpakai`})
+Resolusi: ${request.resolution || '1080p'}${benchmarkText}
 ${isUpgrade ? 'Ini adalah hasil upgrade.' : ''}
 
-Keluarkan HANYA JSON tanpa markdown, tanpa teks lain. Format:
-{ "general": "string", "detailed": { "CPU": "string", "GPU": "string", "MOTHERBOARD": "string", "RAM": "string", "STORAGE": "string", "PSU": "string", "CASE": "string", "COOLER": "string" }, "weaknesses": ["string"], "strengths": ["string"] }`;
+Keluarkan HANYA JSON, tanpa markdown, tanpa teks lain.
+Format JSON:
+{
+  "general": "string — Analisis 2-3 kalimat: nilai build secara keseluruhan, cocok untuk tujuan apa, apakah sesuai budget, rekomendasi upgrade path.",
+  "detailed": {
+    "CPU": "string — Analisis 2-3 kalimat: kemampuan CPU, skor PassMark (Single/Multi), cocok untuk tujuan ini, value for money.",
+    "GPU": "string — Analisis 2-3 kalimat: FPS konkret di ${request.resolution || '1080p'} (AAA dan E-Sports), kemampuan ray tracing, value.",
+    "MOTHERBOARD": "string — Analisis: kompatibilitas socket/ramType, fitur penting, apakah sudah cukup atau perlu upgrade.",
+    "RAM": "string — Analisis: kapasitas dan kecepatan RAM, dampak ke gaming/productivity, apakah cukup untuk multitasking.",
+    "STORAGE": "string — Analisis: tipe (NVMe/SATA), kapasitas, kecepatan baca/tulis, cukup untuk kebutuhan.",
+    "PSU": "string — Analisis: wattage, headroom untuk upgrade, efisiensi, apakah aman untuk total TDP.",
+    "CASE": "string — Analisis: airflow, form factor, dukungan cable management, estetika.",
+    "COOLER": "string — Analisis: apakah cukup untuk TDP CPU, noise level, performa thermal."
+  },
+  "strengths": ["3-4 kelebihan spesifik dengan data — misal: GPU mampu 92 FPS di 1080p AAA, CPU single-core 3100 PassMark"],
+  "weaknesses": ["2-3 kekurangan spesifik dengan data — misal: RAM 16GB mungkin kurang untuk multitasking berat, PSU tidak modular"]
+}`;
 
-    const systemPrompt = `Kamu adalah ahli racik PC yang jujur dan analitis.
-Analisis build ini secara objektif.
-Gunakan data benchmark FPS dan PassMark yang tersedia untuk mendukung analisismu.
-Sebutkan angka FPS konkret dalam analisis GPU.
-Sebutkan skor benchmark CPU jika relevan.
-Gunakan bahasa Indonesia natural.
-Jika ada ketidakseimbangan, katakan dengan sopan.
-Berikan strengths dan weaknesses yang spesifik, bukan template.`;
+    const systemPrompt = `Kamu adalah ahli racik PC Indonesia yang jujur dan analitis.
+Analisis build ini secara objektif dengan data konkret.
+WAJIB sebutkan angka FPS spesifik (AAA dan E-Sports) di analisis GPU — gunakan data benchmark yang diberikan.
+WAJIB sebutkan skor PassMark (Single & Multi) di analisis CPU jika tersedia.
+Gunakan bahasa Indonesia natural, gaya bahasa tech reviewer.
+Beri nilai value-for-money berdasarkan harga vs performa.
+Jika ada bottleneck antara CPU dan GPU, sebutkan.
+Strengths dan weaknesses harus spesifik dengan angka, bukan template generik.`;
 
     const result = await callLLM(systemPrompt, prompt);
     if (result) {
