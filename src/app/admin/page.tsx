@@ -1474,6 +1474,23 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
     });
   }, []);
 
+  // Auto-fetch models when base URL loaded and connected
+  useEffect(() => {
+    if (!baseUrl || !connected) return;
+    fetch('/api/admin/settings/test-llm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseUrl, apiKey, model }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.availableModels) {
+          setAvailableModels(data.availableModels);
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleTest = async () => {
     setTesting(true);
     setTestError(null);
@@ -1606,8 +1623,18 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
             PILIH MODEL
           </div>
 
+          {model && (
+            <div className={`mb-3 px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-2 ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+              <Check className="w-3.5 h-3.5" />
+              Model aktif: <span className="font-mono">{model}</span>
+            </div>
+          )}
+
           {availableModels.length === 0 ? (
-            <p className="text-xs text-gray-500">Klik Test Connection untuk melihat daftar model.</p>
+            <p className="text-xs text-gray-500 flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Memuat daftar model...
+            </p>
           ) : (
             <div className="space-y-1 max-h-60 overflow-y-auto">
               {availableModels.map((m) => {
@@ -1629,6 +1656,7 @@ function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {
                   >
                     <div className={`w-2 h-2 rounded-full ${active ? 'bg-primary' : 'bg-gray-500/30'}`} />
                     <span className="truncate">{m}</span>
+                    {active && <Check className="w-3 h-3 ml-auto text-primary shrink-0" />}
                   </button>
                 );
               })}
