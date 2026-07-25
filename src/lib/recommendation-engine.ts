@@ -391,7 +391,7 @@ export const predictPerformance = (
 export const generateLowBudgetAdvice = (budget: number) => {
   return {
     title: 'Waktunya Menghadapi Realitas 🛠️',
-    message: `Budget Rp ${budget.toLocaleString('id-ID')} saat ini belum cukup untuk merakit PC baru yang layak. Berdasarkan riset pasar Indonesia 2026, budget minimum untuk PC baru yang nyaman adalah Rp 4,5 juta (Office) hingga Rp 8 juta (Gaming Entry).`,
+    message: `Budget Rp ${Number.isFinite(budget) ? budget.toLocaleString('id-ID') : '0'} saat ini belum cukup untuk merakit PC baru yang layak. Berdasarkan riset pasar Indonesia 2026, budget minimum untuk PC baru yang nyaman adalah Rp 4,5 juta (Office) hingga Rp 8 juta (Gaming Entry).`,
     strategies: [
       {
         id: 'save',
@@ -470,7 +470,7 @@ export const generateNarrative = (
 
   let general = isUpgrade
     ? `Pilihan yang sangat cerdas! Dengan upgrade yang Anda pilih, build ini kini memiliki performa yang jauh lebih tinggi. `
-    : `Build ini dirancang dengan filosofi "Pure Performance". Dengan budget Rp ${request.budget.toLocaleString('id-ID')}, kami memprioritaskan ${build.GPU ? 'GPU' : 'CPU'} sebagai jantung utama. `;
+    : `Build ini dirancang dengan filosofi "Pure Performance". Dengan budget Rp ${Number.isFinite(request.budget) ? request.budget.toLocaleString('id-ID') : '0'}, kami memprioritaskan ${build.GPU ? 'GPU' : 'CPU'} sebagai jantung utama. `;
 
   if (gpuFpsText) general += `GPU ini mampu mencapai${gpuFpsText}. `;
   if (bottleneck.bottleneckType !== 'Balanced') general += `Catatan: ${bottleneck.status}. `;
@@ -580,7 +580,7 @@ export async function generateNarrativeWithLLM(
   try {
     const componentsText = Object.entries(build || {})
       .filter(([, p]) => p)
-      .map(([type, part]: [string, any]) => `${type}: ${part.name} (Rp ${part.price?.toLocaleString('id-ID')})`)
+      .map(([type, part]: [string, any]) => `${type}: ${part.name} (Rp ${Number.isFinite(part.price) ? part.price.toLocaleString('id-ID') : '0'})`)
       .join('\n');
 
     const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU.name) : null;
@@ -596,10 +596,10 @@ export async function generateNarrativeWithLLM(
       benchmarkText += `\nCPU Benchmark: PassMark Single=${cpuBench.passmarkSingle}, Multi=${cpuBench.passmarkMulti}.`;
     }
 
-    const prompt = `Racikan PC untuk ${request.purpose} budget Rp ${request.budget.toLocaleString('id-ID')}:
+    const prompt = `Racikan PC untuk ${request.purpose} budget Rp ${Number.isFinite(request.budget) ? request.budget.toLocaleString('id-ID') : '0'}:
 
 ${componentsText}
-Total: Rp ${totalPrice.toLocaleString('id-ID')} (${totalPrice > request.budget ? 'over budget' : `${Math.round((totalPrice / request.budget) * 100)}% terpakai`})
+Total: Rp ${Number.isFinite(totalPrice) ? totalPrice.toLocaleString('id-ID') : '0'} (${totalPrice > request.budget ? 'over budget' : `${Math.round((totalPrice / request.budget) * 100)}% terpakai`})
 Resolusi: ${request.resolution || '1080p'}${benchmarkText}
 ${isUpgrade ? 'Ini adalah hasil upgrade.' : ''}
 

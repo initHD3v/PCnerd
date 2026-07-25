@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const componentsText = Object.entries(build || {})
       .map(([type, part]: [string, any]) => {
         if (!part) return `${type}: (none)`;
-        return `${type}: ${part.name} (Rp ${part.price?.toLocaleString('id-ID')})`;
+        return `${type}: ${part.name} (Rp ${Number.isFinite(part.price) ? part.price.toLocaleString('id-ID') : '0'})`;
       })
       .join('\n');
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       benchmarkText += `\nBottleneck: ${bottleneck.status} (${bottleneck.severity}).`;
     }
 
-    const userPrompt = `Racikan PC dengan budget Rp ${budget?.toLocaleString('id-ID')} untuk ${purpose || 'Gaming'} di resolusi ${res}.
+    const userPrompt = `Racikan PC dengan budget Rp ${Number.isFinite(budget) ? budget.toLocaleString('id-ID') : '0'} untuk ${purpose || 'Gaming'} di resolusi ${res}.
 
 Komponen:
 ${componentsText}

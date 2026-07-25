@@ -564,7 +564,7 @@ async function generateSingleBuild(
     tier: pctUsed >= 90 ? 'Max Performance' : pctUsed >= 60 ? 'Mid-Range' : 'Entry',
     analysis:
       mode === 'performance'
-        ? `Build ini menggunakan ${pctUsed}% dari budget Anda (Rp ${totalPrice.toLocaleString('id-ID')} dari Rp ${request.budget.toLocaleString('id-ID')}).`
+        ? `Build ini menggunakan ${pctUsed}% dari budget Anda (Rp ${Number.isFinite(totalPrice) ? totalPrice.toLocaleString('id-ID') : '0'} dari Rp ${Number.isFinite(request.budget) ? request.budget.toLocaleString('id-ID') : '0'}).`
         : `Build ini ${isOverBudget ? 'sedikit melebihi' : 'menggunakan'} budget Anda (${pctUsed}%).`,
     technical: { totalTdp, psuWattage, isPsuSafe, bottleneckStatus: bottleneck.status },
     performance,

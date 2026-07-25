@@ -347,7 +347,7 @@ export async function POST(req: NextRequest) {
       try {
         const cleaned = llmResult.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(cleaned);
-        if (parsed.intent === 'build' && parsed.budget) {
+        if (parsed.intent === 'build' && typeof parsed.budget === 'number' && isFinite(parsed.budget) && parsed.budget >= 0) {
           extracted = {
             budget: parsed.budget,
             purpose: parsed.purpose || 'Gaming',
