@@ -73,8 +73,7 @@ async function callLMStudio(config: LLMConfig, system: string, user: string): Pr
     body: JSON.stringify({
       model: config.model,
       messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
+        { role: 'user', content: `${system}\n\n${user}` },
       ],
       max_tokens: 4096,
       temperature: 0.7,
@@ -182,8 +181,7 @@ async function* streamLMStudio(config: LLMConfig, system: string, user: string):
     body: JSON.stringify({
       model: config.model,
       messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
+        { role: 'user', content: `${system}\n\n${user}` },
       ],
       max_tokens: 4096,
       temperature: 0.7,

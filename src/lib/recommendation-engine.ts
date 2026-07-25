@@ -557,7 +557,8 @@ ${componentsText}
 ${benchmarkText}
 ${isUpgrade ? 'Ini adalah hasil upgrade.' : ''}
 
-Analisis dalam JSON: { "general": "string", "detailed": { "CPU": "string", "GPU": "string", "MOTHERBOARD": "string", "RAM": "string", "STORAGE": "string", "PSU": "string", "CASE": "string", "COOLER": "string" }, "weaknesses": ["string"], "strengths": ["string"] }`;
+Keluarkan HANYA JSON tanpa markdown, tanpa teks lain. Format:
+{ "general": "string", "detailed": { "CPU": "string", "GPU": "string", "MOTHERBOARD": "string", "RAM": "string", "STORAGE": "string", "PSU": "string", "CASE": "string", "COOLER": "string" }, "weaknesses": ["string"], "strengths": ["string"] }`;
 
     const systemPrompt = `Kamu adalah ahli racik PC yang jujur dan analitis.
 Analisis build ini secara objektif.
@@ -570,8 +571,16 @@ Berikan strengths dan weaknesses yang spesifik, bukan template.`;
 
     const result = await callLLM(systemPrompt, prompt);
     if (result) {
+      let jsonStr = result.trim();
+      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) jsonStr = jsonMatch[1].trim();
+      const braceStart = jsonStr.indexOf('{');
+      const braceEnd = jsonStr.lastIndexOf('}');
+      if (braceStart !== -1 && braceEnd > braceStart) {
+        jsonStr = jsonStr.slice(braceStart, braceEnd + 1);
+      }
       try {
-        const parsed = JSON.parse(result);
+        const parsed = JSON.parse(jsonStr);
         return {
           general: parsed.general || template.general,
           detailed: parsed.detailed || template.detailed,
@@ -579,7 +588,7 @@ Berikan strengths dan weaknesses yang spesifik, bukan template.`;
           strengths: parsed.strengths || [],
         };
       } catch {
-        return { ...template, general: result, weaknesses: [], strengths: [] };
+        return { ...template, general: result.replace(/```[\s\S]*?```/g, '').trim(), weaknesses: [], strengths: [] };
       }
     }
   } catch {}
