@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/hooks/use-theme';
 
@@ -24,12 +25,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <head>
-        <script dangerouslySetInnerHTML={{
-          __html: `try{let t=localStorage.getItem('pcnerd-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`
-        }} />
-      </head>
       <body className="antialiased transition-colors duration-300 dark:bg-black dark:text-gray-200 bg-gray-50 text-gray-800 font-sans">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`try{let t=localStorage.getItem('pcnerd-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`}
+        </Script>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
