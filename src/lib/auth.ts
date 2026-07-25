@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
+import { createRateLimiter } from './rate-limit';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-only-secret';
 export const COOKIE_NAME = 'bw_admin_token';
@@ -8,10 +9,10 @@ const BCRYPT_ROUNDS = 12;
 const TOKEN_EXPIRY = '8h';
 const RESET_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 
-// Rate limiting: simple in-memory store
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+// Rate limiting
 const MAX_LOGIN_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const loginLimiter = createRateLimiter({ max: MAX_LOGIN_ATTEMPTS, windowMs: RATE_LIMIT_WINDOW_MS });
 
 export interface JwtPayload {
   id: string;
@@ -69,21 +70,11 @@ export function clearSessionCookie(): string {
 
 // --- Rate Limit ---
 export function checkRateLimit(identifier: string): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const entry = loginAttempts.get(identifier);
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(identifier, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: MAX_LOGIN_ATTEMPTS - 1 };
-  }
-  if (entry.count >= MAX_LOGIN_ATTEMPTS) {
-    return { allowed: false, remaining: 0 };
-  }
-  entry.count++;
-  return { allowed: true, remaining: MAX_LOGIN_ATTEMPTS - entry.count };
+  return loginLimiter.check(identifier);
 }
 
 export function resetRateLimit(identifier: string): void {
-  loginAttempts.delete(identifier);
+  loginLimiter.reset(identifier);
 }
 
 // --- Token Generation ---
