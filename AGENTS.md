@@ -117,14 +117,28 @@
 | `src/app/build/results/page.tsx` | Enhanced loading animation |
 | `src/components/build/BuildForm.tsx` | Loading overlay component |
 
-## Next Up — Review & Sempurnakan
+## Status Pekerjaan
 
-Untuk review besok:
+### Selesai (25 Jul 2026)
 
-- [ ] **Test & verify** — LM Studio dengan Parallel=1 + Context=4096 apakah sudah stabil untuk Mistral 7B. Jika masih error, ganti ke Llama 3.2 3B atau install Ollama.
-- [ ] **LLM prompt improvement** — prompt narrative masih bisa dibuat lebih spesifik dengan data benchmark FPS agar LLM menyebutkan angka performa.
-- [ ] **Streaming LLM response** — `/api/ai/narrative` sudah support SSE, tapi belum di-wire ke hasil build. Stream narrative setelah halaman results load.
-- [ ] **Multi-factor component scoring** — skor komponen berdasarkan (performa benchmark / harga). Bobot: compatibility 30%, performance 40%, value 20%, reliability 10%.
-- [ ] **RAM performance impact** — tambahkan data pengaruh frekuensi RAM ke benchmark.
-- [ ] **Bottleneck analysis** — refinement threshold berdasarkan resolusi (sudah, tapi bisa diperhalus).
-- [ ] **Upgrade impact calculator** — hitung uplift FPS konkret saat upgrade GPU/CPU.
+- [x] **LM Studio fix** — system prompt merged into user message (Mistral 7B tidak support `system` role)
+- [x] **LLM prompt improvement** — prompt narrative menyertakan data benchmark FPS, PassMark, RAM impact
+- [x] **Streaming LLM response** — SSE di-wire ke client: narrative muncul real-time karakter per karakter
+- [x] **Multi-factor component scoring** — skor (compatibility 30%, performance 40%, value 20%, reliability 10%) ditampilkan sebagai bar di card komponen + tooltip breakdown
+- [x] **Hapus/restore/ganti komponen** — remove overlay, restore, replace modal dengan validasi kompatibilitas
+- [x] **Async LLM narrative** — fetch `/api/ai/narrative` async saat user mengubah build, cache per hash
+- [x] **RAM performance impact** — RAM Impact card di Technical Overview (speed, kapasitas, gaming%, productivity%)
+- [x] **Filter/Sort di modal ganti** — search by nama/brand/socket/ramType, sort by harga/nama, brand filter
+- [x] **Upgrade impact di modal** — tiap kandidat di modal ganti komponen menampilkan FPS bar + benefit text
+- [x] **Bottleneck analysis refinement** — visual gauge CPU↔Seimbang↔GPU, rasio numerik, zona seimbang per resolusi
+- [x] **Upgrade impact calculator** — FPS uplift konkret (current→new FPS) dengan bar visual di modal
+
+### Files Touched (25 Jul 2026)
+
+| File | Change |
+|---|---|
+| `src/lib/llm.ts` | LM Studio system→user merge, streaming, max_tokens 4096 |
+| `src/lib/build-service.ts` | Multi-factor scoring in BuildResult, componentScores returned |
+| `src/lib/recommendation-engine.ts` | RAM `getUpgradeImpact` fix (real FPS instead of multiplier×100) |
+| `src/app/build/results/page.tsx` | Streaming narrative, score bars + tooltip, filter/sort modal, RAM in Technical Overview, upgrade benefit in modal, bottleneck gauge, FPS impact bars |
+| `src/app/api/ai/narrative/route.ts` | SSE streaming endpoint
