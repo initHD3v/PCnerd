@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Zap, ShieldCheck, TrendingDown, Send, Sparkles, Bot, User, RefreshCw } from 'lucide-react';
+import { Cpu, Zap, ShieldCheck, TrendingDown, Send, Sparkles, Bot, User, RefreshCw, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -101,6 +101,13 @@ export default function Home() {
     }
   };
 
+  const handleClear = () => {
+    setChatHistory([]);
+    setShowChat(false);
+    setHint('');
+    setError('');
+  };
+
   return (
     <div
       className={`flex flex-col min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
@@ -154,7 +161,18 @@ export default function Home() {
           >
             {/* Chat Messages */}
             {showChat && (chatHistory.length > 0 || loading === 'qa') && (
-              <div className="mb-4 space-y-3 max-h-80 overflow-y-auto scroll-smooth">
+              <div className="mb-4 space-y-3 max-h-80 overflow-y-auto scroll-smooth relative">
+                {chatHistory.length > 1 && (
+                  <button
+                    onClick={handleClear}
+                    className={`absolute top-1 right-1 z-10 p-1.5 rounded-lg transition-all ${
+                      isDarkMode ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-400 hover:text-gray-700'
+                    }`}
+                    title="Hapus percakapan"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {chatHistory.map((msg, i) => (
                   <motion.div
                     key={i}
@@ -256,20 +274,23 @@ export default function Home() {
                     disabled={loading !== 'idle'}
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <div className="flex flex-wrap gap-2">
-                      {QA_PROMPTS.slice(0, 2).map((ex, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            setPrompt(ex);
-                            setError('');
-                          }}
-                          className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                        >
-                          {ex}
-                        </button>
-                      ))}
-                    </div>
+                    {!showChat && (
+                      <div className="flex flex-wrap gap-2">
+                        {QA_PROMPTS.slice(0, 2).map((ex, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setPrompt(ex);
+                              setError('');
+                            }}
+                            className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                          >
+                            {ex}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showChat && <div />}
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={handleSubmit}
@@ -295,20 +316,22 @@ export default function Home() {
               </motion.div>
             )}
 
-            <div className="flex flex-wrap gap-2 mt-2 justify-center">
-              {[...EXAMPLE_PROMPTS, ...QA_PROMPTS.slice(2)].map((ex, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setPrompt(ex);
-                    setError('');
-                  }}
-                  className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                >
-                  {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}
-                </button>
-              ))}
-            </div>
+            {!showChat && (
+              <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                {[...EXAMPLE_PROMPTS, ...QA_PROMPTS.slice(2)].map((ex, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setPrompt(ex);
+                      setError('');
+                    }}
+                    className={`text-[9px] px-2 py-1 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >
+                    {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
