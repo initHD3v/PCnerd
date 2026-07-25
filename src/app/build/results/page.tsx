@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -90,6 +90,8 @@ export default function BuildResults() {
   const [selectorOpen, setSelectorOpen] = useState<string | null>(null);
   const [selectorComponents, setSelectorComponents] = useState<any[]>([]);
   const [selectorLoading, setSelectorLoading] = useState(false);
+  const [llmNarratives, setLlmNarratives] = useState<Record<string, any>>({});
+  const [llmLoading, setLlmLoading] = useState(false);
   const [requestData, setRequestData] = useState<any>(null);
   const [gameQuality, setGameQuality] = useState<'LOW' | 'Medium' | 'High' | 'Ultra'>('Ultra');
   const [gameType, setGameType] = useState<'AAA Games' | 'E-Sports'>('AAA Games');
@@ -143,6 +145,15 @@ export default function BuildResults() {
     setRemovedComponents({});
   };
 
+  const getBuildHash = useCallback((b: Record<string, any>) => {
+    const ids = Object.entries(b)
+      .filter(([, p]) => p)
+      .sort(([a], [b2]) => a.localeCompare(b2))
+      .map(([, p]) => p.id || '')
+      .join('|');
+    return ids || 'empty';
+  }, []);
+
   const estimateGpuTdp = useCallback((gpu: any) => {
     if (gpu?.tdp) return gpu.tdp;
     const p = gpu?.price || 0;
@@ -195,7 +206,65 @@ export default function BuildResults() {
   const totalPrice = upgradeState?.totalPrice ?? activeBuild?.totalPrice ?? 0;
   const performance = upgradeState?.performance ?? activeBuild?.performance ?? [];
   const technical = upgradeState?.technical ?? activeBuild?.technical ?? {};
-  const narrative = hasUpgrades ? upgradeState?.narrative ?? {} : activeBuild?.narrative ?? {};
+  const templateNarrative = upgradeState?.narrative ?? {};
+
+  // LLM narrative: original → cache → fetch
+  const originalKey = useMemo(() => {
+    return activeBuild ? getBuildHash(activeBuild.build) : '';
+  }, [activeBuild, getBuildHash]);
+
+  const currentHash = getBuildHash(build);
+  const isOriginalBuild = activeBuild && currentHash === originalKey;
+  const cachedLlm = isOriginalBuild
+    ? (activeBuild?.narrative?.general ? activeBuild.narrative : llmNarratives[originalKey] || {})
+    : llmNarratives[currentHash] || {};
+
+  const narrative = cachedLlm?.general ? cachedLlm : templateNarrative;
+
+  // Fetch LLM narrative when build changes (not original, not cached)
+  const prevHashRef = useRef('');
+  useEffect(() => {
+    if (!activeBuild || !build) return;
+    if (isOriginalBuild) return;
+    if (currentHash === prevHashRef.current) return;
+    if (llmNarratives[currentHash]) return;
+
+    prevHashRef.current = currentHash;
+
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) setLlmLoading(true); });
+
+    fetch('/api/ai/narrative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        build: Object.fromEntries(Object.entries(build).filter(([, p]) => p)),
+        request: {
+          budget: activeBuild.targetBudget,
+          purpose: requestData?.purpose || 'Gaming',
+          resolution: activeBuild.resolution || '1080p',
+          includePeripheral: false,
+          platform: requestData?.platform || 'default',
+          text: requestData?.text || '',
+        },
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data && (data.general || data.strengths?.length || data.weaknesses?.length)) {
+          setLlmNarratives((prev) => ({ ...prev, [currentHash]: data }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLlmLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentHash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRemove = useCallback((componentType: string) => {
     const currentBuild = upgradeState?.build ?? activeBuild?.build ?? {};
@@ -1036,17 +1105,28 @@ export default function BuildResults() {
                 <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
                   <BrainCircuit className="w-5 h-5 text-black" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="font-black text-sm">AI Analysis</h3>
-                  <p className="text-[10px] opacity-40 font-bold uppercase">Real-time</p>
+                  <p className="text-[10px] opacity-40 font-bold uppercase">
+                    {llmLoading ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Menganalisis...
+                      </span>
+                    ) : (
+                      'Real-time'
+                    )}
+                  </p>
                 </div>
               </div>
 
               <p className="text-sm leading-relaxed italic mb-5">
-                {narrative?.general ? (
+                {llmLoading && !cachedLlm?.general ? (
+                  <span className="opacity-40 animate-pulse">Menganalisis...</span>
+                ) : narrative?.general ? (
                   `"${narrative.general}"`
                 ) : (
-                  <span className="opacity-40 animate-pulse">Menganalisis...</span>
+                  <span className="opacity-40">Analisis tidak tersedia.</span>
                 )}
               </p>
 
