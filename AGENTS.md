@@ -126,13 +126,13 @@
 
 - [x] **AI quality improvement (7 fixes)**:
 
-| # | Fix | File |
-|---|-----|------|
-| 1 | Translate `PROMPT_SYSTEM_BUILD` ke Bahasa Indonesia | `src/app/api/ai/build-prompt/route.ts` |
-| 2 | Unify narrative system prompt (recommendation-engine + narrative/route) | `src/app/api/ai/narrative/route.ts` |
-| 3 | Anthropic streaming `max_tokens: 1024 → 4096` | `src/lib/llm.ts` |
-| 4 | RAM base FPS 80 → actual GPU FPS from build | `src/lib/recommendation-engine.ts` |
-| 5 | Remove dead `preferredGpu`/`preferredCpu` prompt fields | `src/app/api/ai/build-prompt/route.ts` |
-| 6 | Add `AbortController` timeout to all LLM calls (30s non-streaming, 60s streaming) | `src/lib/llm.ts` |
-| 7 | Truncate conversation history to ~4000 chars | `src/app/api/ai/build-prompt/route.ts` |
-| 8 | Greeting detection & simplified PROMPT_QA — "hai" no longer triggers weird security rambling | `src/app/api/ai/build-prompt/route.ts` |
+| #   | Fix                                                                                          | File                                   |
+| --- | -------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | Translate `PROMPT_SYSTEM_BUILD` ke Bahasa Indonesia                                          | `src/app/api/ai/build-prompt/route.ts` |
+| 2   | Unify narrative system prompt (recommendation-engine + narrative/route)                      | `src/app/api/ai/narrative/route.ts`    |
+| 3   | Anthropic streaming `max_tokens: 1024 → 4096`                                                | `src/lib/llm.ts`                       |
+| 4   | RAM base FPS 80 → actual GPU FPS from build                                                  | `src/lib/recommendation-engine.ts`     |
+| 5   | Remove dead `preferredGpu`/`preferredCpu` prompt fields                                      | `src/app/api/ai/build-prompt/route.ts` |
+| 6   | Add `AbortController` timeout to all LLM calls (30s non-streaming, 60s streaming)            | `src/lib/llm.ts`                       |
+| 7   | Truncate conversation history to ~4000 chars                                                 | `src/app/api/ai/build-prompt/route.ts` |
+| 8   | Greeting detection & simplified PROMPT_QA — "hai" no longer triggers weird security rambling | `src/app/api/ai/build-prompt/route.ts` |

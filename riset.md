@@ -1,8 +1,8 @@
 Riset Budget Minimum Rakit PC Baru Indonesia 2026
 
-Versi: 1.0 
-Tanggal: Juli 2026 
-Peneliti: ChatGPT Research 
+Versi: 1.0
+Tanggal: Juli 2026
+Peneliti: ChatGPT Research
 Wilayah: Indonesia
 
 ---
@@ -83,20 +83,20 @@ Tidak termasuk:
 ---
 
 Ringkasan Budget Minimum
-Kategori	Budget Minimum
-Office	Rp4.500.000
-SMA / SMK	Rp5.000.000
-Mahasiswa	Rp6.000.000
-Programmer Junior	Rp7.000.000
-Programmer Professional	Rp11.000.000
-Gaming Entry	Rp8.000.000
-Gaming Mainstream	Rp12.000.000
-Gaming Enthusiast	Rp20.000.000
-Editing Hobby	Rp10.000.000
-Editing Professional	Rp20.000.000
-3D Rendering Professional	Rp30.000.000
-Streaming	Rp12.000.000
-Streaming Professional	Rp18.000.000
+Kategori Budget Minimum
+Office Rp4.500.000
+SMA / SMK Rp5.000.000
+Mahasiswa Rp6.000.000
+Programmer Junior Rp7.000.000
+Programmer Professional Rp11.000.000
+Gaming Entry Rp8.000.000
+Gaming Mainstream Rp12.000.000
+Gaming Enthusiast Rp20.000.000
+Editing Hobby Rp10.000.000
+Editing Professional Rp20.000.000
+3D Rendering Professional Rp30.000.000
+Streaming Rp12.000.000
+Streaming Professional Rp18.000.000
 
 ---
 
@@ -126,16 +126,16 @@ Beban Kerja
 
 Spesifikasi Minimum
 
-CPU 
+CPU
 Ryzen 5 5600GT
 
-RAM 
+RAM
 16GB
 
-Storage 
+Storage
 500GB NVMe SSD
 
-GPU 
+GPU
 Integrated Graphics
 
 Kesimpulan

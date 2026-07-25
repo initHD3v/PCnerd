@@ -212,7 +212,8 @@ function detectInjection(text: string): boolean {
   // Check for obvious injection patterns
   if (INJECTION_PATTERNS.some((pat) => pat.test(text))) return true;
   // Check if text contains embedded system instructions (e.g., JSON-like structure)
-  if (/\bintent\s*[=:]\s*"(question|build|invalid)"/.test(text) && /abaikan|ignore|forget|lupakan/i.test(text)) return true;
+  if (/\bintent\s*[=:]\s*"(question|build|invalid)"/.test(text) && /abaikan|ignore|forget|lupakan/i.test(text))
+    return true;
   return false;
 }
 
@@ -267,7 +268,8 @@ export async function POST(req: NextRequest) {
     if (detectInjection(prompt)) {
       return NextResponse.json({
         intent: 'invalid',
-        reason: 'Pertanyaan mengandung instruksi yang tidak valid. PCnerd hanya menerima pertanyaan seputar PC dan hardware.',
+        reason:
+          'Pertanyaan mengandung instruksi yang tidak valid. PCnerd hanya menerima pertanyaan seputar PC dan hardware.',
       });
     }
 
@@ -280,7 +282,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         intent: 'question',
         question: prompt,
-        answer: 'Halo! Ada yang bisa saya bantu tentang PC dan hardware? Silakan tanya apa saja seputar komponen PC, build, atau performa gaming.',
+        answer:
+          'Halo! Ada yang bisa saya bantu tentang PC dan hardware? Silakan tanya apa saja seputar komponen PC, build, atau performa gaming.',
       });
     }
 
@@ -289,7 +292,8 @@ export async function POST(req: NextRequest) {
     if (isOffTopic) {
       return NextResponse.json({
         intent: 'invalid',
-        reason: 'Maaf, PCnerd hanya dapat menjawab pertanyaan seputar PC, komponen hardware, dan build PC. Pertanyaan di luar topik tersebut tidak dapat kami proses.',
+        reason:
+          'Maaf, PCnerd hanya dapat menjawab pertanyaan seputar PC, komponen hardware, dan build PC. Pertanyaan di luar topik tersebut tidak dapat kami proses.',
       });
     }
 
@@ -347,7 +351,12 @@ export async function POST(req: NextRequest) {
       try {
         const cleaned = llmResult.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(cleaned);
-        if (parsed.intent === 'build' && typeof parsed.budget === 'number' && isFinite(parsed.budget) && parsed.budget >= 0) {
+        if (
+          parsed.intent === 'build' &&
+          typeof parsed.budget === 'number' &&
+          isFinite(parsed.budget) &&
+          parsed.budget >= 0
+        ) {
           extracted = {
             budget: parsed.budget,
             purpose: parsed.purpose || 'Gaming',

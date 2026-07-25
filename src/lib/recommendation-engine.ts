@@ -554,7 +554,13 @@ export function getUpgradeImpact(
     if (currentRam && suggestedRam) {
       const fpsUpliftPct = suggestedRam.gamingFpsMultiplier - currentRam.gamingFpsMultiplier;
       const gpuBench = gpuName ? findGpuBenchmark(gpuName) : null;
-      const baseFps = gpuBench ? (resolution === '4K' ? gpuBench.fps4k : resolution === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p) : 80;
+      const baseFps = gpuBench
+        ? resolution === '4K'
+          ? gpuBench.fps4k
+          : resolution === '1440p'
+            ? gpuBench.fps1440p
+            : gpuBench.fps1080p
+        : 80;
       const currentEst = Math.round(baseFps * currentRam.gamingFpsMultiplier);
       const suggestedEst = Math.round(baseFps * suggestedRam.gamingFpsMultiplier);
       const upliftPercent = Math.round(fpsUpliftPct * 100);
@@ -580,7 +586,10 @@ export async function generateNarrativeWithLLM(
   try {
     const componentsText = Object.entries(build || {})
       .filter(([, p]) => p)
-      .map(([type, part]: [string, any]) => `${type}: ${part.name} (Rp ${Number.isFinite(part.price) ? part.price.toLocaleString('id-ID') : '0'})`)
+      .map(
+        ([type, part]: [string, any]) =>
+          `${type}: ${part.name} (Rp ${Number.isFinite(part.price) ? part.price.toLocaleString('id-ID') : '0'})`,
+      )
       .join('\n');
 
     const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU.name) : null;

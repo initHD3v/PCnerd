@@ -166,7 +166,9 @@ export default function Home() {
                   <button
                     onClick={handleClear}
                     className={`absolute top-1 right-1 z-10 p-2 md:p-1.5 rounded-lg transition-all ${
-                      isDarkMode ? 'md:hover:bg-white/10 text-gray-400 md:hover:text-white' : 'md:hover:bg-gray-200 text-gray-400 md:hover:text-gray-700'
+                      isDarkMode
+                        ? 'md:hover:bg-white/10 text-gray-400 md:hover:text-white'
+                        : 'md:hover:bg-gray-200 text-gray-400 md:hover:text-gray-700'
                     }`}
                     title="Hapus percakapan"
                     aria-label="Hapus percakapan"
@@ -302,7 +304,11 @@ export default function Home() {
                           : 'bg-primary text-black hover:opacity-90 shadow-lg shadow-primary/20'
                       }`}
                     >
-                      {loading !== 'idle' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {loading !== 'idle' ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
                       {chatHistory.length > 0 ? 'Tanya AI' : 'Tanya / Rakit'}
                     </motion.button>
                   </div>

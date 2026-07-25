@@ -4,7 +4,7 @@ async function main() {
   console.log('=== Test 1: Non-stream (template narrative) ===');
   const result = await callLLM(
     'Kamu adalah ahli PC Indonesia.',
-    'Analisis build: CPU Ryzen 5 5600, GPU RTX 4060. Budget Rp 12jt untuk gaming 1080p. Berikan analisis dalam 3 kalimat.'
+    'Analisis build: CPU Ryzen 5 5600, GPU RTX 4060. Budget Rp 12jt untuk gaming 1080p. Berikan analisis dalam 3 kalimat.',
   );
   console.log('Result:', result);
   console.log();
@@ -12,7 +12,7 @@ async function main() {
   console.log('=== Test 2: Stream ===');
   const stream = callLLMStream(
     'Kamu adalah ahli PC Indonesia.',
-    'Sebutkan 3 kelebihan RTX 4060 dalam format JSON list.'
+    'Sebutkan 3 kelebihan RTX 4060 dalam format JSON list.',
   );
   let full = '';
   for await (const chunk of stream) {

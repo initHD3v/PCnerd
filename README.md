@@ -28,15 +28,15 @@
 
 ## Tech Stack
 
-| Layer         | Teknologi                                                        |
-| ------------- | ---------------------------------------------------------------- |
-| **Framework** | Next.js 16 (Turbopack) + React 19 + TypeScript 6 (strict)        |
-| **Styling**   | Tailwind CSS v4 + Framer Motion + Lucide React                   |
-| **Database**  | SQLite via Prisma 7 + libSQL                                     |
-| **Auth**      | JWT (httpOnly cookie) + bcryptjs, role-based (superadmin/admin)  |
+| Layer         | Teknologi                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| **Framework** | Next.js 16 (Turbopack) + React 19 + TypeScript 6 (strict)                                |
+| **Styling**   | Tailwind CSS v4 + Framer Motion + Lucide React                                           |
+| **Database**  | SQLite via Prisma 7 + libSQL                                                             |
+| **Auth**      | JWT (httpOnly cookie) + bcryptjs, role-based (superadmin/admin)                          |
 | **AI / LLM**  | OpenAI (`gpt-4o-mini`), Anthropic (`claude-3-haiku`), LM Studio (Mistral 7B, Llama, dll) |
-| **Scraper**   | Fetch-based GraphQL ke Tokopedia API                             |
-| **CI/CD**     | GitHub Actions (typecheck → lint → format → test → build)        |
+| **Scraper**   | Fetch-based GraphQL ke Tokopedia API                                                     |
+| **CI/CD**     | GitHub Actions (typecheck → lint → format → test → build)                                |
 
 ## Panduan Memulai
 
@@ -77,6 +77,7 @@ ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 Atau gunakan LM Studio lokal (tanpa API key):
+
 1. Buka LM Studio → Local Inference Server → http://127.0.0.1:1234
 2. Load model (Mistral 7B, Llama 3.2 3B, dll)
 3. Start server
@@ -127,12 +128,12 @@ Penyesuaian purpose (Editing/Rendering → +10% CPU, -15% GPU), termasuk periphe
 
 Setiap komponen di-scoring saat build digenerate:
 
-| Faktor        | Bobot | Metrik                                                |
-| ------------- | ----- | ----------------------------------------------------- |
-| Compatibility | 30%   | Kecocokan socket, RAM type, form factor, TDP, PSU     |
-| Performance   | 40%   | FPS vs budget-tier, CPU PassMark, RAM speed           |
-| Value         | 20%   | Price/performance ratio dalam tier yang sama           |
-| Reliability   | 10%   | Brand reputation, warranty length                      |
+| Faktor        | Bobot | Metrik                                            |
+| ------------- | ----- | ------------------------------------------------- |
+| Compatibility | 30%   | Kecocokan socket, RAM type, form factor, TDP, PSU |
+| Performance   | 40%   | FPS vs budget-tier, CPU PassMark, RAM speed       |
+| Value         | 20%   | Price/performance ratio dalam tier yang sama      |
+| Reliability   | 10%   | Brand reputation, warranty length                 |
 
 ### 4. Prediksi Performa (`predictPerformance`)
 
@@ -220,37 +221,37 @@ src/
 
 ## API Endpoints
 
-| Method       | Endpoint                              | Auth | Deskripsi                          |
-| ------------ | ------------------------------------- | ---- | ---------------------------------- |
-| POST         | `/api/recommendation`                 | -    | Generate build recommendation      |
-| POST         | `/api/ai/build-prompt`                | -    | Intent detection + Q&A + build     |
-| POST         | `/api/ai/narrative`                   | -    | Generate LLM narrative (streaming) |
-| GET          | `/api/admin/components`               | JWT  | List semua komponen                |
-| POST         | `/api/admin/components`               | JWT  | Tambah komponen                    |
-| PATCH        | `/api/admin/components/[id]`          | JWT  | Edit komponen                      |
-| DELETE       | `/api/admin/components/[id]`          | JWT  | Hapus komponen                     |
-| POST         | `/api/admin/sync`                     | JWT  | Trigger sync harga Tokopedia       |
-| GET/PATCH    | `/api/admin/settings`                 | JWT  | Baca/update pengaturan LLM         |
-| POST         | `/api/admin/settings/test-llm`        | JWT  | Test koneksi LM Studio             |
-| POST         | `/api/admin/auth/login`               | -    | Login admin                        |
-| POST         | `/api/admin/auth/logout`              | -    | Logout                             |
-| GET          | `/api/admin/auth/me`                  | -    | Cek session                        |
-| POST         | `/api/admin/auth/change-password`     | JWT  | Ganti password                     |
-| POST         | `/api/admin/auth/forgot-password`     | -    | Lupa password                      |
-| POST         | `/api/admin/auth/reset-password`      | -    | Reset password                     |
-| GET/POST     | `/api/admin/admins`                   | JWT  | List/tambah admin                  |
-| PATCH/DELETE | `/api/admin/admins/[id]`              | JWT  | Edit/hapus admin                   |
+| Method       | Endpoint                          | Auth | Deskripsi                          |
+| ------------ | --------------------------------- | ---- | ---------------------------------- |
+| POST         | `/api/recommendation`             | -    | Generate build recommendation      |
+| POST         | `/api/ai/build-prompt`            | -    | Intent detection + Q&A + build     |
+| POST         | `/api/ai/narrative`               | -    | Generate LLM narrative (streaming) |
+| GET          | `/api/admin/components`           | JWT  | List semua komponen                |
+| POST         | `/api/admin/components`           | JWT  | Tambah komponen                    |
+| PATCH        | `/api/admin/components/[id]`      | JWT  | Edit komponen                      |
+| DELETE       | `/api/admin/components/[id]`      | JWT  | Hapus komponen                     |
+| POST         | `/api/admin/sync`                 | JWT  | Trigger sync harga Tokopedia       |
+| GET/PATCH    | `/api/admin/settings`             | JWT  | Baca/update pengaturan LLM         |
+| POST         | `/api/admin/settings/test-llm`    | JWT  | Test koneksi LM Studio             |
+| POST         | `/api/admin/auth/login`           | -    | Login admin                        |
+| POST         | `/api/admin/auth/logout`          | -    | Logout                             |
+| GET          | `/api/admin/auth/me`              | -    | Cek session                        |
+| POST         | `/api/admin/auth/change-password` | JWT  | Ganti password                     |
+| POST         | `/api/admin/auth/forgot-password` | -    | Lupa password                      |
+| POST         | `/api/admin/auth/reset-password`  | -    | Reset password                     |
+| GET/POST     | `/api/admin/admins`               | JWT  | List/tambah admin                  |
+| PATCH/DELETE | `/api/admin/admins/[id]`          | JWT  | Edit/hapus admin                   |
 
 ## Keamanan
 
-| Lapisan                  | Implementasi                                                               |
-| ------------------------ | -------------------------------------------------------------------------- |
-| **Admin Auth**           | JWT httpOnly cookie `bw_admin_token`, dua role (superadmin/admin)          |
-| **Rate Limit**           | 5 login attempt per 15 menit per IP + 10 AI prompt per menit per IP       |
-| **Prompt Injection**     | 15 regex pattern + LLM validation. System prompt diperkuat tolak override  |
-| **Output Sanitization**  | XSS filter (script/iframe/onclick), truncation 4000 chars                  |
-| **Off-topic Filter**     | 14 rule-based pattern + LLM-based validation                               |
-| **Flash Prevention**     | Inline script di `<body>` sebelum React hydrasi untuk cegah theme flash    |
+| Lapisan                 | Implementasi                                                              |
+| ----------------------- | ------------------------------------------------------------------------- |
+| **Admin Auth**          | JWT httpOnly cookie `bw_admin_token`, dua role (superadmin/admin)         |
+| **Rate Limit**          | 5 login attempt per 15 menit per IP + 10 AI prompt per menit per IP       |
+| **Prompt Injection**    | 15 regex pattern + LLM validation. System prompt diperkuat tolak override |
+| **Output Sanitization** | XSS filter (script/iframe/onclick), truncation 4000 chars                 |
+| **Off-topic Filter**    | 14 rule-based pattern + LLM-based validation                              |
+| **Flash Prevention**    | Inline script di `<body>` sebelum React hydrasi untuk cegah theme flash   |
 
 ## Catatan Penting
 
