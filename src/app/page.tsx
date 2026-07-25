@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cpu, Zap, ShieldCheck, TrendingDown, Send, Sparkles, Bot, User, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
@@ -32,7 +32,7 @@ export default function Home() {
   const isDarkMode = theme === 'dark';
   const router = useRouter();
   const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<'idle' | 'qa' | 'build'>('idle');
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -40,15 +40,20 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory, loading]);
+
   const handleSubmit = async () => {
-    if (!prompt.trim() || loading) return;
+    if (!prompt.trim() || loading !== 'idle') return;
     const userMsg = prompt.trim();
     setPrompt('');
     setError('');
     setHint('');
     setChatHistory((prev) => [...prev, { role: 'user', text: userMsg }]);
     setShowChat(true);
-    setLoading(true);
+    setLoading('qa');
 
     try {
       const res = await fetch('/api/ai/build-prompt', {
@@ -62,25 +67,30 @@ export default function Home() {
       if (!res.ok) {
         setChatHistory((prev) => [...prev, { role: 'assistant', text: data.error || 'Gagal memproses prompt' }]);
         if (data.hint) setHint(data.hint);
+        setLoading('idle');
         return;
       }
 
       if (data.intent === 'question') {
         setChatHistory((prev) => [...prev, { role: 'assistant', text: data.answer || 'Maaf, tidak ada jawaban.' }]);
+        setLoading('idle');
       } else if (data.intent === 'invalid') {
         setChatHistory((prev) => [
           ...prev,
           { role: 'assistant', text: data.reason || 'Maaf, pertanyaan tidak dapat diproses.' },
         ]);
+        setLoading('idle');
       } else {
+        setLoading('build');
         localStorage.setItem('latest_build', JSON.stringify(data.result));
         localStorage.setItem('build_request', JSON.stringify(data.request));
+        // Brief delay so user sees the build loading before redirect
+        await new Promise((r) => setTimeout(r, 800));
         router.push('/build/results');
       }
     } catch (e: any) {
       setChatHistory((prev) => [...prev, { role: 'assistant', text: e.message || 'Terjadi kesalahan' }]);
-    } finally {
-      setLoading(false);
+      setLoading('idle');
     }
   };
 
@@ -95,7 +105,7 @@ export default function Home() {
     <div
       className={`flex flex-col min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
-      <AnimatePresence>{loading && <AiLoadingOverlay isDarkMode={isDarkMode} />}</AnimatePresence>
+      <AnimatePresence>{loading === 'build' && <AiLoadingOverlay isDarkMode={isDarkMode} />}</AnimatePresence>
       {/* Navigation */}
       <nav
         className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-500 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
@@ -143,8 +153,8 @@ export default function Home() {
             className="max-w-2xl mx-auto mb-12 w-full"
           >
             {/* Chat Messages */}
-            {showChat && chatHistory.length > 0 && (
-              <div className="mb-4 space-y-3 max-h-80 overflow-y-auto">
+            {showChat && (chatHistory.length > 0 || loading === 'qa') && (
+              <div className="mb-4 space-y-3 max-h-80 overflow-y-auto scroll-smooth">
                 {chatHistory.map((msg, i) => (
                   <motion.div
                     key={i}
@@ -157,7 +167,7 @@ export default function Home() {
                       <div
                         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-primary/20' : 'bg-primary/10'}`}
                       >
-                        <Bot className={`w-4 h-4 ${isDarkMode ? 'text-primary' : 'text-primary'}`} />
+                        <Bot className="w-4 h-4 text-primary" />
                       </div>
                     )}
                     <div
@@ -182,6 +192,47 @@ export default function Home() {
                     )}
                   </motion.div>
                 ))}
+
+                {/* Typing indicator for Q&A loading */}
+                {loading === 'qa' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex gap-3 justify-start"
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-primary/20' : 'bg-primary/10'}`}
+                    >
+                      <Bot className="w-4 h-4 text-primary" />
+                    </div>
+                    <div
+                      className={`px-4 py-3 rounded-2xl rounded-tl-md text-sm flex items-center ${
+                        isDarkMode
+                          ? 'bg-white/5 text-gray-200 border border-white/5'
+                          : 'bg-white text-gray-800 border border-gray-100 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <motion.span
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
+                          className="w-1.5 h-1.5 rounded-full bg-primary"
+                        />
+                        <motion.span
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                          className="w-1.5 h-1.5 rounded-full bg-primary"
+                        />
+                        <motion.span
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
+                          className="w-1.5 h-1.5 rounded-full bg-primary"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 <div ref={chatEndRef} />
               </div>
             )}
@@ -202,7 +253,7 @@ export default function Home() {
                     placeholder="Tanya apa pun tentang PC atau minta rekomendasi build..."
                     rows={2}
                     className="w-full bg-transparent text-base resize-none focus:outline-none placeholder:text-gray-500"
-                    disabled={loading}
+                    disabled={loading !== 'idle'}
                   />
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex flex-wrap gap-2">
@@ -222,14 +273,14 @@ export default function Home() {
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={handleSubmit}
-                      disabled={!prompt.trim() || loading}
+                      disabled={!prompt.trim() || loading !== 'idle'}
                       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        !prompt.trim() || loading
+                        !prompt.trim() || loading !== 'idle'
                           ? 'bg-gray-500/20 text-gray-500 cursor-not-allowed'
                           : 'bg-primary text-black hover:opacity-90 shadow-lg shadow-primary/20'
                       }`}
                     >
-                      {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {loading !== 'idle' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       {chatHistory.length > 0 ? 'Tanya AI' : 'Tanya / Rakit'}
                     </motion.button>
                   </div>
