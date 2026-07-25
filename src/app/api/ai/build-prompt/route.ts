@@ -191,13 +191,22 @@ Tugasmu adalah menjawab pertanyaan user tentang komponen PC, build PC, dan hardw
 Gunakan bahasa Indonesia yang natural dan informatif.
 Jawab dengan ringkas dan jelas (maksimal 3-4 paragraf). 
 Jangan gunakan markdown. Jawab dalam format teks biasa.`;
+function buildConversationContext(prompt: string, history?: { role: string; text: string }[]): string {
+  if (!history || history.length === 0) return prompt;
+  const prev = history
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+    .join('\n');
+  return `Percakapan sebelumnya:\n${prev}\n\nPertanyaan baru: ${prompt}`;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt } = await req.json();
+    const { prompt, history } = await req.json();
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
+
+    const contextualPrompt = buildConversationContext(prompt, history);
 
     // Step 0: Rule-based off-topic filter (quick check before LLM call)
     const isOffTopic = OFF_TOPIC_PATTERNS.some((pat) => pat.test(prompt));
@@ -209,8 +218,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Step 1: Detect intent using LLM
-    const llmResult = await callLLM(PROMPT_SYSTEM_BUILD, prompt);
+    // Step 1: Detect intent using LLM (with conversation context)
+    const llmResult = await callLLM(PROMPT_SYSTEM_BUILD, contextualPrompt);
     let intent = 'build';
     let questionSummary = '';
     let invalidReason = '';
@@ -237,9 +246,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Step 2: Handle general question
+    // Step 2: Handle general question (with conversation context)
     if (intent === 'question') {
-      const qaPrompt = `Pertanyaan user: ${prompt}\n\n${questionSummary ? `Ringkasan: ${questionSummary}` : ''}`;
+      const qaPrompt = `${contextualPrompt}\n\n${questionSummary ? `Ringkasan: ${questionSummary}` : ''}`;
       const answer = await callLLM(PROMPT_QA, qaPrompt);
       return NextResponse.json({
         intent: 'question',
@@ -274,11 +283,11 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    // Fallback rule-based extraction
+    // Fallback rule-based extraction (using current prompt + context)
     if (!extracted || !extracted.budget) {
       const purpose = extracted?.purpose || parsePurpose(prompt);
       const resolution = extracted?.resolution || parseResolution(prompt);
-      const explicitBudget = parseBudget(prompt);
+      const explicitBudget = parseBudget(contextualPrompt);
       if (explicitBudget) {
         if (!extracted) {
           extracted = {
@@ -292,7 +301,7 @@ export async function POST(req: NextRequest) {
           extracted.budget = explicitBudget;
         }
       } else {
-        const estimated = estimateBudget(purpose, resolution, prompt);
+        const estimated = estimateBudget(purpose, resolution, contextualPrompt);
         if (!extracted) {
           extracted = {
             budget: estimated,
@@ -308,7 +317,7 @@ export async function POST(req: NextRequest) {
     } else {
       const purpose = extracted.purpose;
       const resolution = extracted.resolution;
-      const minReasonable = estimateBudget(purpose, resolution, prompt);
+      const minReasonable = estimateBudget(purpose, resolution, contextualPrompt);
       if (extracted.budget < minReasonable * 0.4) {
         extracted.budget = minReasonable;
       }
@@ -327,7 +336,7 @@ export async function POST(req: NextRequest) {
       extracted!.budget = minForPurpose;
     }
 
-    const result = await generateTieredBuilds({ ...extracted!, text: prompt });
+    const result = await generateTieredBuilds({ ...extracted!, text: contextualPrompt });
 
     return NextResponse.json({
       intent: 'build',

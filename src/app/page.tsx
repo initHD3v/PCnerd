@@ -59,7 +59,7 @@ export default function Home() {
       const res = await fetch('/api/ai/build-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMsg }),
+        body: JSON.stringify({ prompt: userMsg, history: chatHistory }),
       });
 
       const data = await res.json();
