@@ -37,6 +37,7 @@ import {
   Check,
   Database,
   Search,
+  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { predictPerformance, generateNarrative } from '@/lib/recommendation-engine';
@@ -92,6 +93,7 @@ export default function BuildResults() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [pendingBuild, setPendingBuild] = useState<{ prompt: string; timestamp: number } | null>(null);
   const [activeTier, setActiveTier] = useState<TierKey>('max');
   const [appliedUpgrades, setAppliedUpgrades] = useState<Record<string, any>>({});
   const [customBuild, setCustomBuild] = useState<Record<string, any>>({});
@@ -107,12 +109,24 @@ export default function BuildResults() {
   const [requestData, setRequestData] = useState<any>(null);
   const [gameQuality, setGameQuality] = useState<'LOW' | 'Medium' | 'High' | 'Ultra'>('Ultra');
   const [gameType, setGameType] = useState<'AAA Games' | 'E-Sports'>('AAA Games');
+  const [showHistory, setShowHistory] = useState(false);
+  const [buildHistory, setBuildHistory] = useState<
+    Array<{ id: string; prompt: string; timestamp: number; hasData: boolean }>
+  >([]);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
   const loadBuild = useCallback(() => {
     const saved = localStorage.getItem('latest_build');
     if (!saved) {
+      const stored = localStorage.getItem('pending_build');
+      if (stored) {
+        try {
+          setPendingBuild(JSON.parse(stored));
+          setReady(true);
+          return;
+        } catch {}
+      }
       router.replace('/build');
       return;
     }
@@ -138,6 +152,53 @@ export default function BuildResults() {
   useEffect(() => {
     Promise.resolve().then(loadBuild);
   }, [loadBuild]);
+
+  // Build history: load on mount, save current build
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('build_history');
+      if (stored) queueMicrotask(() => setBuildHistory(JSON.parse(stored)));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!data?.tiers || !ready) return;
+    try {
+      const stored = localStorage.getItem('build_history');
+      const history: Array<{ id: string; prompt: string; timestamp: number; hasData: boolean }> = stored
+        ? JSON.parse(stored)
+        : [];
+      const req = localStorage.getItem('build_request');
+      const prompt = req ? JSON.parse(req).text || '' : '';
+      // Build a deterministic id from the build data
+      const buildStr = JSON.stringify({ tiers: data.tiers, targetBudget: data.targetBudget });
+      let hash = 0;
+      for (let i = 0; i < buildStr.length; i++) {
+        hash = ((hash << 5) - hash + buildStr.charCodeAt(i)) | 0;
+      }
+      const buildId = 'b' + Math.abs(hash).toString(36);
+      if (!history.some((h) => h.id === buildId)) {
+        history.unshift({ id: buildId, prompt: prompt.slice(0, 120), timestamp: Date.now(), hasData: true });
+        if (history.length > 10) history.pop();
+        localStorage.setItem('build_history', JSON.stringify(history));
+        queueMicrotask(() => setBuildHistory(history));
+        // Store build data keyed by id
+        localStorage.setItem(`build_data_${buildId}`, JSON.stringify(data));
+        localStorage.setItem(`build_request_${buildId}`, req || '');
+      }
+    } catch {}
+  }, [data, ready]);
+
+  // Close history dropdown on click outside
+  useEffect(() => {
+    if (!showHistory) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.history-panel')) setShowHistory(false);
+    };
+    setTimeout(() => document.addEventListener('click', handler), 0);
+    return () => document.removeEventListener('click', handler);
+  }, [showHistory]);
 
   const activeBuild = useMemo(() => {
     if (!data?.tiers) return null;
@@ -238,7 +299,8 @@ export default function BuildResults() {
   const totalPrice = upgradeState?.totalPrice ?? activeBuild?.totalPrice ?? 0;
   const performance = upgradeState?.performance ?? activeBuild?.performance ?? [];
   const technical = upgradeState?.technical ?? activeBuild?.technical ?? {};
-  const templateNarrative = upgradeState?.narrative ?? {};
+  const templateNarrative: { general?: string; strengths?: string[]; weaknesses?: string[] } =
+    upgradeState?.narrative ?? {};
   const componentScores: Record<string, any> = activeBuild?.componentScores ?? {};
 
   // LLM narrative: original → cache → fetch
@@ -253,7 +315,15 @@ export default function BuildResults() {
 
   const partialKey = `partial_${currentHash}`;
   const partialNarrative = llmNarratives[partialKey];
-  const narrative = partialNarrative?.general ? partialNarrative : cachedLlm?.general ? cachedLlm : templateNarrative;
+  const narrative = partialNarrative?.general
+    ? partialNarrative
+    : cachedLlm?.general
+      ? {
+          ...cachedLlm,
+          strengths: cachedLlm.strengths?.length ? cachedLlm.strengths : templateNarrative?.strengths || [],
+          weaknesses: cachedLlm.weaknesses?.length ? cachedLlm.weaknesses : templateNarrative?.weaknesses || [],
+        }
+      : templateNarrative;
 
   // Fetch LLM narrative when build changes (not original, not cached)
   const prevHashRef = useRef('');
@@ -266,6 +336,7 @@ export default function BuildResults() {
     prevHashRef.current = currentHash;
 
     let cancelled = false;
+    const abortController = new AbortController();
     queueMicrotask(() => {
       if (!cancelled) setLlmLoading(true);
     });
@@ -273,6 +344,7 @@ export default function BuildResults() {
     const narrativeBuild = Object.fromEntries(Object.entries(build).filter(([, p]) => p));
 
     fetch('/api/ai/narrative', {
+      signal: abortController.signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -355,7 +427,7 @@ export default function BuildResults() {
           } catch {}
         }
 
-        // Fallback: store accumulated as general text
+        // Fallback: store accumulated as general text with template strengths/weaknesses
         const cleaned = accumulated
           .replace(/```[\s\S]*?```/g, '')
           .replace(/\{.*\}/s, '')
@@ -363,7 +435,11 @@ export default function BuildResults() {
         if (cleaned) {
           setLlmNarratives((prev) => ({
             ...prev,
-            [currentHash]: { general: cleaned, strengths: [], weaknesses: [] },
+            [currentHash]: {
+              general: cleaned,
+              strengths: templateNarrative?.strengths || [],
+              weaknesses: templateNarrative?.weaknesses || [],
+            },
           }));
         }
         setLlmLoading(false);
@@ -374,6 +450,7 @@ export default function BuildResults() {
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
   }, [currentHash]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -411,7 +488,7 @@ export default function BuildResults() {
       setSelectorOpen(componentType);
       setSelectorLoading(true);
       try {
-        const res = await fetch(`/api/admin/components`);
+        const res = await fetch(`/api/components`);
         if (res.ok) {
           const all = await res.json();
           if (componentType === 'PERIPHERAL') {
@@ -532,6 +609,57 @@ export default function BuildResults() {
     },
     [activeBuild, upgradeState],
   );
+
+  if (pendingBuild) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center transition-colors ${isDark ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full mx-4 p-8 text-center"
+        >
+          <div
+            className={`p-4 rounded-2xl border ${isDark ? 'bg-amber-900/20 border-amber-700/30' : 'bg-amber-50 border-amber-200'}`}
+          >
+            <p className={`text-lg font-bold mb-2 ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>
+              Build sebelumnya terputus
+            </p>
+            <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              "{pendingBuild.prompt.slice(0, 100)}
+              {pendingBuild.prompt.length > 100 ? '...' : ''}"
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  localStorage.removeItem('pending_build');
+                  router.push('/build');
+                }}
+                className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${
+                  isDark ? 'bg-amber-600 text-black hover:bg-amber-500' : 'bg-amber-500 text-white hover:bg-amber-600'
+                }`}
+              >
+                Lanjutkan di Beranda
+              </button>
+              <button
+                onClick={() => {
+                  setPendingBuild(null);
+                  localStorage.removeItem('pending_build');
+                  router.replace('/build');
+                }}
+                className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${
+                  isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (!ready || !activeBuild) {
     return (
@@ -795,6 +923,95 @@ export default function BuildResults() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Build History */}
+              <div className="relative">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowHistory((p) => !p)}
+                  className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 print:hidden ${isDark ? 'bg-white/5 hover:bg-white/10 text-primary' : 'bg-gray-100 hover:bg-gray-200 text-primary shadow-inner'}`}
+                  title="Riwayat Build"
+                >
+                  <Clock className="w-5 h-5" />
+                </motion.button>
+
+                <AnimatePresence>
+                  {showHistory && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className={`absolute right-0 top-14 w-72 rounded-2xl border shadow-2xl overflow-hidden z-50 history-panel ${
+                        isDark ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'
+                      }`}
+                    >
+                      <div
+                        className={`px-4 py-3 border-b text-xs font-bold uppercase tracking-wider ${isDark ? 'border-white/10 text-gray-400' : 'border-gray-100 text-gray-500'}`}
+                      >
+                        Riwayat Build
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {buildHistory.length === 0 ? (
+                          <div
+                            className={`px-4 py-6 text-center text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}
+                          >
+                            Belum ada riwayat
+                          </div>
+                        ) : (
+                          buildHistory.map((h) => {
+                            return (
+                              <button
+                                key={h.id}
+                                onClick={() => {
+                                  setShowHistory(false);
+                                  const stored = localStorage.getItem(`build_data_${h.id}`);
+                                  if (stored) {
+                                    localStorage.setItem('latest_build', stored);
+                                    const req = localStorage.getItem(`build_request_${h.id}`);
+                                    if (req) localStorage.setItem('build_request', req);
+                                    window.location.reload();
+                                  }
+                                }}
+                                className={`w-full text-left px-4 py-3 text-sm transition-colors border-b last:border-b-0 ${
+                                  isDark
+                                    ? 'border-white/5 hover:bg-white/5 text-gray-300'
+                                    : 'border-gray-50 hover:bg-gray-50 text-gray-700'
+                                }`}
+                              >
+                                <div className="text-xs font-medium truncate">
+                                  {h.prompt || 'Build tanpa deskripsi'}
+                                </div>
+                                <div className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                  {new Date(h.timestamp).toLocaleDateString('id-ID', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                        {buildHistory.length > 0 && (
+                          <button
+                            onClick={() => {
+                              localStorage.removeItem('build_history');
+                              setBuildHistory([]);
+                            }}
+                            className={`w-full text-center px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                              isDark ? 'text-red-400 hover:bg-red-900/20' : 'text-red-500 hover:bg-red-50'
+                            }`}
+                          >
+                            Hapus Semua Riwayat
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               <motion.button
                 whileTap={{ scale: 0.9, rotate: -15 }}
                 onClick={() => window.print()}
@@ -1070,17 +1287,61 @@ export default function BuildResults() {
                             <div className="text-sm font-black text-primary">
                               Rp {part.price.toLocaleString('id-ID')}
                             </div>
-                            {!isRemoved && (
-                              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover/card:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1">
+                              <a
+                                href={
+                                  part.shopUrl ||
+                                  `https://www.tokopedia.com/search?st=product&q=${encodeURIComponent(part.name)}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Lihat di Tokopedia"
+                                className="h-7 md:h-6 px-1.5 rounded-lg md:rounded-md flex items-center justify-center bg-green-500/10 hover:bg-green-500/20 opacity-100 transition-all"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <img
+                                  src="/tokopedia/logo.svg"
+                                  alt="Tokopedia"
+                                  className="h-3.5 md:h-3 w-auto pointer-events-none"
+                                />
+                              </a>
+                              <a
+                                href={`https://www.google.com/search?q=${encodeURIComponent(part.name + ' harga Indonesia')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Lihat detail di Google"
+                                className="w-7 h-7 md:w-6 md:h-6 rounded-lg md:rounded-md flex items-center justify-center opacity-60 hover:opacity-100 md:hover:bg-white/10 transition-all"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5">
+                                  <path
+                                    fill="#4285F4"
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                                  />
+                                  <path
+                                    fill="#EA4335"
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                  />
+                                  <path
+                                    fill="#FBBC05"
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                  />
+                                  <path
+                                    fill="#34A853"
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                  />
+                                </svg>
+                              </a>
+                              {!isRemoved && (
                                 <button
                                   onClick={() => handleRemove(type)}
-                                  className="w-8 h-8 md:w-6 md:h-6 rounded-lg md:rounded-md flex items-center justify-center text-[10px] md:text-[9px] font-bold bg-red-500/10 text-red-500 md:hover:bg-red-500/20 transition-all"
+                                  className="w-7 h-7 md:w-6 md:h-6 rounded-lg md:rounded-md flex items-center justify-center text-[10px] md:text-[9px] font-bold bg-red-500/10 text-red-500 md:hover:bg-red-500/20 transition-all"
                                   title="Hapus komponen"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                         {!isRemoved && (
@@ -1094,33 +1355,6 @@ export default function BuildResults() {
                             Ganti {TYPE_LABELS[type] || type}
                           </button>
                         )}
-                        <a
-                          href={`https://www.google.com/search?q=${encodeURIComponent(part.name + ' harga Indonesia')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Lihat detail"
-                          className="absolute bottom-2 right-2 w-8 h-8 md:w-6 md:h-6 rounded-lg md:rounded-md flex items-center justify-center opacity-100 md:opacity-20 md:hover:opacity-100 md:hover:bg-white/10 transition-all"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5">
-                            <path
-                              fill="#4285F4"
-                              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                            />
-                            <path
-                              fill="#EA4335"
-                              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                            />
-                            <path
-                              fill="#FBBC05"
-                              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                            />
-                            <path
-                              fill="#34A853"
-                              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                            />
-                          </svg>
-                        </a>
                       </motion.div>
                     );
                   })}

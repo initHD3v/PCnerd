@@ -136,3 +136,28 @@
 | 6   | Add `AbortController` timeout to all LLM calls (30s non-streaming, 60s streaming)            | `src/lib/llm.ts`                       |
 | 7   | Truncate conversation history to ~4000 chars                                                 | `src/app/api/ai/build-prompt/route.ts` |
 | 8   | Greeting detection & simplified PROMPT_QA — "hai" no longer triggers weird security rambling | `src/app/api/ai/build-prompt/route.ts` |
+
+## Price Sync Progress (Tokopedia MCP)
+
+### Done (applied to DB via `tmp/update.ts`)
+- **Peripherals (41)**: HEADSET 5/6, SPEAKER 6/8, MOUSE 7/8, KEYBOARD 8/8, MONITOR 11/11.
+- **RAM (6)**, **CASE (11)**, **STORAGE (5)**, **COOLER (14)**, **PSU (19)**, **CPU (27)** — all via respective `tmp/findings_*.tsv`.
+- **MOTHERBOARD (54)**: ASRock (30) + ASUS (24). Remaining: ASUS TUF, Colorful, Gigabyte, MSI (~154).
+- **GPU (213→317)**: ASUS (~83), MSI (~33), Gigabyte (~26), Colorful (~15), Zotac (~11), Palit (8), Galax (6), Sapphire (7), PowerColor (7), ASRock (7). Findings in `tmp/findings_gpu.tsv`. ASUS done via direct matches + same-chip/same-line variant reuse with real source URLs (`tmp/reuse_asus.ts`). MSI RTX + Gigabyte WINDFORCE/GAMING OC + Colorful iGAME ULTRA + Zotac RTX NVIDIA lines largely done via direct matches. Skipped: legacy GT/GTX + AORUS ELITE/Vulcan/EX GAMER premium variants + BATTLE-AX/STORMX/GAMINGPRO non-surfacing & AMD RX lines that rarely surface clean.
+- **GPU gen-anyar RTX 5050-5090 (59)**: full grind selesai — `tmp/findings_gpu2.tsv`. ASUS DUAL/PRIME/ROG STRIX/ASTRAL/TUF, MSI GAMING OC/SHADOW/VENTUS/GAMING TRIO, Gigabyte WINDFORCE/GAMING/AERO/AORUS MASTER, Zotac TWIN EDGE/SOLID, Colorful BATTLE AX/iGame Ultra W/Advanced, Galax 1-CLICK OC/EX Gamer, Palit StormX/GamingPro/GameRock. 0 sisa RTX 5050-5090.
+- **GPU AMD RX tambahan (47)**: `tmp/findings_gpu_rx.tsv`. ASRock CHALLENGER/Steel Legend (7700 XT/7900 XT/XTX/9060 XT/9070/9070 XT), ASUS TUF/DUAL (7800 XT/7900 XT/XTX/9060 XT/9070 XT), Gigabyte GAMING OC/AORUS ELITE (7600/7800 XT/7900 XT/XTX/9060 XT/9070/9070 XT), MSI MECH 2X 7600, PowerColor FIGHTER/Reaper/Hellhound (7800 XT/9060 XT/9070/9070 XT), Sapphire PULSE (7700 XT/9060 XT).
+
+### Data-Quality Cleanup (12 Aug 2026)
+Seed data for GPU/motherboard contained **fabricated SKUs** — impossible brand × chip × line-variant combos (cartesian product). Full audit done; changes applied:
+
+- **GPU**: deleted **32 fabricated** entries — budget chips (GT 730, GT 1030, GTX 1050 Ti, GTX 1650) in high-end lines that never shipped (ASUS ROG STRIX, Gigabyte AORUS ELITE, Colorful iGAME ULTRA/ADVANCED, Zotac TRINITY OC, Galax EX GAMING, Palit GAMINGPRO OC). No build refs. GPU total 632→600, un-synced 421→389.
+- **MOTHERBOARD renamed (9) + re-synced (8)** — all validated: corrected names now surface clean on Tokopedia.
+  - ASUS ROG STRIX B450M-A→**PRIME B450M-A**, B550M-A→PRIME, B560M-A→PRIME, B760M-A→PRIME, B650M-E WIFI→**TUF GAMING B650M-E WIFI**, B850M-E→**TUF GAMING B850M-E WIFI**, B860M-E→**ASUS B860M-E**, X870E-A→**ROG STRIX X870E-E GAMING WIFI**; Gigabyte X670E GAMING PLUS→**X670 GAMING X AX**.
+  - Clean prices applied to 8 via `tmp/findings_mb.tsv` (ASRock/MOTHERBOARD synced 164→172).
+- Remaining un-synced mothers (36) are **real products that don't surface on Tokopedia MCP** even with fuzzy/minimal queries (e.g. MSI B760M BAZOOKA, B550M-VC WIFI, ASRock H810M-HDV / X870E PG RIPTIDE / B840M Pro RS, Colorful Battle-Ax). Not fake — just unsyncable via this tool / uncommon in ID.
+
+### Next
+- Remaining GPU: **283 un-synced** (600 total, 317 synced): RX 126 (9070 29, 9070 XT 15, 580 20, 6600 15, 7900 XTX 9, 7600 9, 9060 8, 7700 XT 8…), RTX lama 28 (3050/3060/4060/4070/4080/4090 premium), GT/GTX 68, OTHER 16. Mostly RX 580/6600 (2nd-hand/brand aneh) + RTX premium variants that rarely surface clean; optional.
+- Remaining mothers: 36 real-but-unsurfaced boards (list in `tmp/dump.ts MOTHERBOARD`); mostly skip.
+- Run `node --loader ts-node/esm tmp/update.ts tmp/<findings>.tsv` after each batch.
+- `tmp/dump.ts <TYPE>` to query; `ls tmp/ | grep findings` to see applied TSVs.

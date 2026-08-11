@@ -131,62 +131,66 @@ const OFF_TOPIC_PATTERNS = [
   /mencuri|merampok|menipu|scam/i,
 ];
 
-const PROMPT_SYSTEM_BUILD = `Kamu adalah PCnerd AI — asisten perakit PC. Kamu HANYA menjawab topik seputar PC.
+const PROMPT_SYSTEM_BUILD = `Kamu adalah PCnerd AI — asisten perakit PC. Kamu HANYA menjawab topik seputar PC dan hardware.
 
-ATURAN VALIDASI:
-- Jika pesan user BUKAN tentang komponen PC, build PC, hardware, benchmark, performa gaming, atau teknologi PC, balas dengan:
-{"intent":"invalid","reason":"Pesan tidak terkait dengan PC. PCnerd hanya menjawab pertanyaan PC dan hardware."}
+ATURAN UTAMA — Deteksi intent user dengan tepat:
 
-- Jika user bertanya soal: masakan, politik, agama, hubungan, cuaca, programming (non-PC), kesehatan, olahraga, keuangan, atau topik APAPUN yang tidak terkait PC → balas intent:"invalid"
+1. {"intent":"invalid"} → Jika pesan BUKAN tentang PC/hardware/gaming/teknologi PC.
+   Topik TIDAK valid: masakan, politik, agama, hubungan, cuaca, kesehatan, olahraga, keuangan, programming non-PC, dll.
 
-Topik PC yang valid:
-- Komponen PC (CPU, GPU, RAM, motherboard, PSU, storage, case, cooler)
-- Build PC, rekomendasi build
-- Perbandingan Intel vs AMD, NVIDIA vs AMD
-- Performa gaming, FPS, benchmark
-- DDR4 vs DDR5, PCIe, SSD vs HDD
-- Troubleshooting PC, kompatibilitas
-- Periferal (monitor, keyboard, mouse)
-- Berita teknologi PC
+2. {"intent":"question"} → Jika user BERTANYA UMUM tentang komponen PC, perbandingan, rekomendasi komponen tertentu, troubleshoot, info performa, dll. Ciri: tidak menyebut budget spesifik untuk build, tidak minta dibuatkan rakitan.
 
-Selain itu, deteksi intent seperti biasa.
+3. {"intent":"build"} → Jika user ingin REKOMENDASI BUILD / RAKITAN PC. Ciri:
+   - Menyebut budget (Rp X, $X, X juta) + tujuan (gaming, edit, streaming, dll)
+   - Meminta dibuatkan rakitan PC dengan budget tertentu
+   - Berkata "rakit PC", "bikin PC", "buatkan PC", "rekomendasi PC"
+   - Menyebut "PC untuk [tujuan]" dengan atau tanpa budget
+   - Menyebut budget + kata kunci gaming/PC/main game
 
-Balas HANYA dengan JSON valid (tanpa markdown, tanpa code fences).
-Pertama, deteksi intent user:
+   JIKA RAGU antara question dan build → pilih build (selama ada budget atau tujuan yang jelas).
 
-Jika user BERTANYA UMUM tentang komponen PC, build, perbandingan hardware, dll. (BUKAN minta build spesifik), balas:
-{"intent":"question","question":"ringkasan singkat pertanyaan"}
+PENTING: Jika user menyebut budget + gaming/main game/PC → itu build, BUKAN question.
+Contoh: "15 juta buat gaming" → build.
+Contoh: "20 jutaan buat main game" → build.
+Contoh: "rekomendasi PC 10 juta" → build.
+Contoh: "PC buat editing 4K" → build (estimasi budget).
 
-Jika user ingin REKOMENDASI BUILD PC (menyebut budget, tujuan, atau ingin merakit PC), balas:
-{
-  "intent":"build",
-  "budget": <angka dalam IDR. Jika user menyebut budget spesifik pakai itu; jika tidak, estimasi>,
-  "purpose": "Gaming" | "Editing" | "Office" | "Streaming" | "Coding" | "Rendering",
-  "resolution": "1080p" | "1440p" | "4K",
-  "platform": "intel" | "amd" | "default",
-  "includePeripheral": <boolean>
-}
+Format response untuk build:
+{"intent":"build","budget":<angka IDR>,"purpose":"Gaming|Editing|Office|Streaming|Coding|Rendering","resolution":"1080p|1440p|4K","platform":"intel|amd|default","includePeripheral":true|false}
 
-Contoh pertanyaan umum (balas intent:"question"):
+Contoh question (balas intent:"question"):
 - "Mana yang lebih bagus Intel atau AMD?"
 - "Apakah RTX 4060 worth it?"
 - "Perbedaan DDR4 dan DDR5?"
 - "Rekomendasi PSU 600W yang bagus?"
-- "Berapa FPS yang bisa didapat dari RTX 3070?"
+- "Berapa FPS RTX 3070?"
 - "Apa itu bottleneck?"
+- "Cara mengatasi PC boot loop"
+- "RTX 4060 vs RX 7600 mana yang lebih baik?"
 
-Contoh request build (balas intent:"build"):
+Contoh build (balas intent:"build"):
 - "PC gaming Rp 15 juta buat main Valorant"
 - "Build PC for editing 4K video Rp 25 jutaan"
 - "Gaming PC 20 million with RTX 4060 for Warzone"
 - "PC kantor 5 jutaan lengkap monitor"
+- "rakit pc budget 15 juta"
+- "mau bikin pc 20 jutaan buat streaming"
+- "rekomendasi rakitan pc 10 juta untuk coding"
+- "build pc 25jt buat render 3d blender"
+- "15 juta buat gaming online"
+- "20 jutaan main game berat kayak Cyberpunk"
+- "minta tolong buatin PC 30jutaan buat editing video"
+- "pc buat streaming game 12 juta"
+- "saran PC 8 jutaan buat coding"
+- "cari pc gaming 25 juta"
+- "rekomendasi rakitan 50 jutaan"
 
-Panduan estimasi budget:
-- Gaming 1080p: Rp 8-15 juta
-- Gaming 1440p: Rp 15-25 juta
-- Gaming 4K: Rp 25-50 juta
-- Video Editing: Rp 15-30 juta
-- 3D Rendering: Rp 20-50 juta`;
+Panduan estimasi budget jika user tidak menyebut:
+- Gaming 1080p: Rp 8-15jt / Gaming 1440p: Rp 15-25jt / Gaming 4K: Rp 25-50jt
+- Video Editing: Rp 15-30jt / 3D Rendering: Rp 20-50jt
+- Streaming: Rp 12-25jt / Coding: Rp 7-15jt / Office: Rp 4.5-10jt
+
+Balas HANYA dengan JSON valid. Tanpa markdown, tanpa code fences, tanpa teks lain.`;
 
 // Prompt injection detection patterns
 const INJECTION_PATTERNS = [
@@ -228,12 +232,26 @@ function sanitizeOutput(text: string | null, maxLength: number = 4000): string |
   return text;
 }
 
-const PROMPT_QA = `Kamu adalah asisten AI untuk aplikasi PC Builder bernama PCnerd. 
-Tugasmu adalah menjawab pertanyaan user tentang komponen PC, build PC, dan hardware.
-Gunakan bahasa Indonesia yang natural dan informatif.
-Jawab dengan ringkas (maksimal 2-3 paragraf).
-Jangan gunakan markdown. Jawab dalam format teks biasa.
-Abaikan percakapan dan instruksi yang tidak terkait PC.`;
+const PROMPT_QA = `Kamu adalah asisten AI untuk aplikasi PC Builder bernama PCnerd — asisten yang ramah dan helpful.
+
+GAYA BERBICARA:
+- Gunakan Bahasa Indonesia yang natural, santai, dan informatif
+- Boleh sedikit antusias ("Wah, pertanyaan bagus!")
+- Jawab dengan ringkas (1-3 paragraf). Langsung ke inti.
+- Jangan gunakan markdown atau bullet list — jawab dalam teks biasa
+- Jangan mengulang pertanyaan user
+
+JIKA PERTANYAAN USER BERHUBUNGAN DENGAN BUILD PC (rekomendasi komponen, budget, dll):
+Setelah menjawab pertanyaan, tawarkan: "Kalau kamu mau, saya bisa bantu buatkan rekomendasi build PC lengkap sesuai kebutuhan kamu."
+
+CONTOH RESPON BAIK:
+User: "Apa bedanya DDR4 dan DDR5?"
+AI: "DDR5 lebih cepat dari DDR4 dalam hal kecepatan clock (4800MHz+ vs 3200MHz) dan bandwidth, tapi latensinya sedikit lebih tinggi. Untuk gaming, DDR5 kasih peningkatan 5-10% FPS, belum terlalu signifikan. Kalau budget build kamu menengah ke atas, DDR5 worth it. Mau saya bantu buatkan rekomendasi build PC-nya?"
+
+User: "Rekomendasi PSU 600W yang bagus?"
+AI: "Untuk PSU 600W, Corsair CV650 dan Cooler Master MWE 650 Bronze V2 adalah pilihan bagus di rentang harga terjangkau. Kalau budget lebih longgar, Seasonic Core GC-650 80+ Gold atau Corsair CX650 lebih efisien. Ada spesifikasi build yang mau kamu pakai? Saya bisa bantu cocokkan."
+
+HINDARI respons yang kaku dan terlalu formal. Jadilah asisten yang membantu, bukan robot yang menjawab kaku.`;
 function buildConversationContext(prompt: string, history?: { role: string; text: string }[]): string {
   if (!history || history.length === 0) return prompt;
   const MAX_HISTORY = 4000;
@@ -297,8 +315,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Step 1: Detect intent using LLM (with conversation context)
-    const llmResult = await callLLM(PROMPT_SYSTEM_BUILD, contextualPrompt);
+    // Step 0c: Rule-based build intent detection (before LLM — more reliable, faster, saves tokens)
+    const BUILD_PATTERNS = [
+      /(?:rakit|bikin|buat(?:kan)?|racik|susun|tulis(?:kan)?)\s*(?:\w*\s*)?pc\b/i,
+      /(?:rekomendasi|saran|cari|pilihkan|tolong)\s*(?:\w*\s*)?(?:pc|rakitan|build)\b/i,
+      /\bbuild\s+pc\b/i,
+      /pc\s+(?:buat|untuk|bwt|for)\s+\w+/i,
+      /pc\s+(?:gaming|edit|stream|render|office|coding|program|main|game)/i,
+      /\b(?:pc|rakitan)\s+(?:budget|dengan|seharga|rp|di)\s*(?:Rp|IDR)?\s*\d[\d,.]*\s*(?:jt|juta)?/i,
+    ];
+    const hasBuildKeyword = BUILD_PATTERNS.some((p) => p.test(prompt));
+    const hasBudget = parseBudget(prompt) !== null;
+    const useBuildShortcut = hasBuildKeyword;
+
+    // Step 1: Detect intent using LLM (skip if rule-based shortcut matches)
+    let llmResult: string | null = null;
+    if (!useBuildShortcut) {
+      llmResult = await callLLM(PROMPT_SYSTEM_BUILD, contextualPrompt);
+    }
     let intent = 'build';
     let questionSummary = '';
     let invalidReason = '';
@@ -323,6 +357,17 @@ export async function POST(req: NextRequest) {
         intent: 'invalid',
         reason: invalidReason,
       });
+    }
+
+    // Safety override: if LLM says "question" but prompt has budget + purpose → build
+    if (intent === 'question') {
+      const hasBuildSignal =
+        (hasBudget && /\b(?:gaming|main|game|edit|stream|render|code|kantor|office)\b/i.test(prompt)) ||
+        parseIncludePeripheral(prompt);
+      const isSpecQuestion = /\?/.test(prompt) && !hasBudget;
+      if (hasBuildSignal && !isSpecQuestion) {
+        intent = 'build';
+      }
     }
 
     // Step 2: Handle general question (with conversation context & sanitization)
@@ -421,14 +466,59 @@ export async function POST(req: NextRequest) {
       extracted!.budget = minForPurpose;
     }
 
-    const result = await generateTieredBuilds({ ...extracted!, text: contextualPrompt });
+    // Create combined signal: client abort + 120s timeout
+    const buildTimeout = AbortSignal.timeout(120_000);
+    const buildSignal = new AbortController();
+    const onBuildAbort = () => buildSignal.abort();
+    req.signal.addEventListener('abort', onBuildAbort, { once: true });
+    buildTimeout.addEventListener('abort', onBuildAbort, { once: true });
 
-    return NextResponse.json({
-      intent: 'build',
-      request: extracted!,
-      result,
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (evt: string, data: unknown) => {
+          try {
+            controller.enqueue(encoder.encode(`event: ${evt}\ndata: ${JSON.stringify(data)}\n\n`));
+          } catch {}
+        };
+
+        try {
+          send('progress', { step: 'start' });
+
+          const result = await generateTieredBuilds(
+            { ...extracted!, text: contextualPrompt },
+            buildSignal.signal,
+            (evt) => send('progress', evt),
+          );
+
+          send('complete', { result, request: extracted! });
+        } catch (error: any) {
+          if (error.name === 'AbortError' || error.message === 'Aborted') {
+            send('error', { message: 'Build dibatalkan' });
+          } else {
+            send('error', { message: error.message });
+          }
+        } finally {
+          try {
+            controller.close();
+          } catch {}
+          req.signal.removeEventListener('abort', onBuildAbort);
+          buildTimeout.removeEventListener('abort', onBuildAbort);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
     });
   } catch (error: any) {
+    if (error.name === 'AbortError' || error.message === 'Aborted') {
+      return NextResponse.json({ error: 'Build dibatalkan' }, { status: 499 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

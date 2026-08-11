@@ -80,7 +80,10 @@ async function callLMStudio(config: LLMConfig, system: string, user: string): Pr
     },
     body: JSON.stringify({
       model: config.model,
-      messages: [{ role: 'user', content: `${system}\n\n${user}` }],
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
       max_tokens: 4096,
       temperature: 0.7,
     }),
@@ -181,46 +184,71 @@ export async function* callLLMStream(systemPrompt: string, userPrompt: string): 
 }
 
 async function* streamLMStudio(config: LLMConfig, system: string, user: string): AsyncGenerator<string> {
-  const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
-    signal: timeoutSignal(LLM_STREAM_TIMEOUT),
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages: [{ role: 'user', content: `${system}\n\n${user}` }],
-      max_tokens: 4096,
-      temperature: 0.7,
-      stream: true,
-    }),
-  });
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+        signal: timeoutSignal(LLM_STREAM_TIMEOUT),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+          max_tokens: 4096,
+          temperature: 0.7,
+          stream: true,
+        }),
+      });
 
-  const reader = res.body?.getReader();
-  if (!reader) return;
+      if (!res.ok) {
+        const errText = await res.text();
+        if (attempt < maxRetries && (res.status === 0 || res.status >= 500 || errText.includes('Channel Error'))) {
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        throw new Error(`LM Studio ${res.status}: ${errText}`);
+      }
 
-  const decoder = new TextDecoder();
-  let buffer = '';
+      const reader = res.body?.getReader();
+      if (!reader) return;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
-      const data = trimmed.slice(6);
-      if (data === '[DONE]') return;
-      try {
-        const parsed = JSON.parse(data);
-        const content = parsed.choices?.[0]?.delta?.content || '';
-        if (content) yield content;
-      } catch {}
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6);
+          if (data === '[DONE]') return;
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) yield content;
+          } catch {}
+        }
+      }
+      return;
+    } catch (err: any) {
+      const isChannelError = err.message?.includes('Channel Error') || err.message?.includes('channel');
+      if (attempt < maxRetries && (err.name === 'TypeError' || isChannelError)) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
     }
   }
 }

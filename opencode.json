@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "tokopedia": {
+      "type": "local",
+      "command": ["npx", "-y", "@bintangtimurlangit/tokopedia-mcp"],
+      "enabled": true
+    }
+  }
+}

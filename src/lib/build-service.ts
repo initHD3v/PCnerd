@@ -7,6 +7,7 @@ import {
   predictPerformance,
   generateLowBudgetAdvice,
   getUpgradeImpact,
+  generateNarrative,
 } from './recommendation-engine';
 import {
   findCpuBenchmark,
@@ -27,6 +28,13 @@ export interface UpgradeOption {
   benefit: string;
   fpsUplift?: { currentFps: number; newFps: number; upliftPercent: number };
 }
+
+export type ProgressEvent =
+  | { step: 'start'; tier?: string }
+  | { step: 'component'; tier?: string; type: string; name: string; price: number }
+  | { step: 'narrative'; tier: string; done?: boolean }
+  | { step: 'complete' }
+  | { step: 'error'; message: string };
 
 export interface ComponentScoreData {
   totalScore: number;
@@ -300,7 +308,11 @@ async function generateSingleBuild(
   request: RecommendationRequest,
   mode: ScoringMode = 'balanced',
   skipNarrative?: boolean,
+  signal?: AbortSignal,
+  onProgress?: (evt: ProgressEvent) => void,
+  tierLabel?: string,
 ): Promise<BuildResult> {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const distribution = getExpertDistribution(request.budget, request.purpose, request.includePeripheral, request.text);
   const build: Record<string, HardwareComponent | null> = {};
 
@@ -316,6 +328,8 @@ async function generateSingleBuild(
   build.CPU = cpuResult.component;
   if (cpuResult.score) componentScores.CPU = cpuResult.score;
   if (!build.CPU) throw new Error('Tidak ada CPU yang tersedia di database.');
+  onProgress?.({ step: 'component', tier: tierLabel, type: 'CPU', name: build.CPU.name || '', price: build.CPU.price });
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
   const mbResult = await findBestScored(
     ComponentType.MOTHERBOARD,
@@ -325,12 +339,27 @@ async function generateSingleBuild(
   );
   build.MOTHERBOARD = mbResult.component;
   if (mbResult.score) componentScores.MOTHERBOARD = mbResult.score;
+  onProgress?.({
+    step: 'component',
+    tier: tierLabel,
+    type: 'MOTHERBOARD',
+    name: build.MOTHERBOARD?.name || '',
+    price: build.MOTHERBOARD?.price || 0,
+  });
 
   if (distribution.GPU > 0) {
     const gpuResult = await findBestScored(ComponentType.GPU, request.budget * distribution.GPU, {}, ctx);
     build.GPU = gpuResult.component;
     if (gpuResult.score) componentScores.GPU = gpuResult.score;
+    onProgress?.({
+      step: 'component',
+      tier: tierLabel,
+      type: 'GPU',
+      name: build.GPU?.name || '',
+      price: build.GPU?.price || 0,
+    });
   }
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
   await ensureBalance(build, request.resolution || '1080p', brandFilter);
 
@@ -342,18 +371,46 @@ async function generateSingleBuild(
   );
   build.RAM = ramResult.component;
   if (ramResult.score) componentScores.RAM = ramResult.score;
+  onProgress?.({
+    step: 'component',
+    tier: tierLabel,
+    type: 'RAM',
+    name: build.RAM?.name || '',
+    price: build.RAM?.price || 0,
+  });
 
   const psuResult = await findBestScored(ComponentType.PSU, request.budget * distribution.PSU, {}, ctx);
   build.PSU = psuResult.component;
   if (psuResult.score) componentScores.PSU = psuResult.score;
+  onProgress?.({
+    step: 'component',
+    tier: tierLabel,
+    type: 'PSU',
+    name: build.PSU?.name || '',
+    price: build.PSU?.price || 0,
+  });
 
   const storageResult = await findBestScored(ComponentType.STORAGE, request.budget * distribution.STORAGE, {}, ctx);
   build.STORAGE = storageResult.component;
   if (storageResult.score) componentScores.STORAGE = storageResult.score;
+  onProgress?.({
+    step: 'component',
+    tier: tierLabel,
+    type: 'STORAGE',
+    name: build.STORAGE?.name || '',
+    price: build.STORAGE?.price || 0,
+  });
 
   const caseResult = await findBestScored(ComponentType.CASE, request.budget * distribution.CASE, {}, ctx);
   build.CASE = caseResult.component;
   if (caseResult.score) componentScores.CASE = caseResult.score;
+  onProgress?.({
+    step: 'component',
+    tier: tierLabel,
+    type: 'CASE',
+    name: build.CASE?.name || '',
+    price: build.CASE?.price || 0,
+  });
 
   const cpuTdp = build.CPU?.tdp || 0;
   const needsCooler = cpuTdp > 65 || /i7|i9|Ryzen 7|Ryzen 9|X3D|K$|KF$|KS/i.test(build.CPU?.name || '');
@@ -364,11 +421,25 @@ async function generateSingleBuild(
     const coolerResult = await findBestScored(ComponentType.COOLER, coolerTarget, {}, { ...ctx, mode: coolerMode });
     build.COOLER = coolerResult.component;
     if (coolerResult.score) componentScores.COOLER = coolerResult.score;
+    onProgress?.({
+      step: 'component',
+      tier: tierLabel,
+      type: 'COOLER',
+      name: build.COOLER?.name || '',
+      price: build.COOLER?.price || 0,
+    });
   }
   if (!build.COOLER && coolerTarget > 0) {
     const coolerResult = await findBestScored(ComponentType.COOLER, coolerTarget, {}, ctx);
     build.COOLER = coolerResult.component;
     if (coolerResult.score) componentScores.COOLER = coolerResult.score;
+    onProgress?.({
+      step: 'component',
+      tier: tierLabel,
+      type: 'COOLER',
+      name: build.COOLER?.name || '',
+      price: build.COOLER?.price || 0,
+    });
   }
 
   if (request.includePeripheral && distribution.PERIPHERALS) {
@@ -378,6 +449,13 @@ async function generateSingleBuild(
       if (found.component) {
         build[pt.type] = found.component;
         if (found.score) componentScores[pt.type as string] = found.score;
+        onProgress?.({
+          step: 'component',
+          tier: tierLabel,
+          type: pt.type,
+          name: found.component.name || '',
+          price: found.component.price,
+        });
       }
     }
   }
@@ -407,6 +485,35 @@ async function generateSingleBuild(
         orderBy: { price: 'asc' },
       });
       if (biggerRam) build.RAM = biggerRam;
+    }
+  }
+
+  // Insight 3: Editing — ensure minimum 32GB RAM + NVMe Gen4 storage
+  if (request.purpose === 'Editing' && build.RAM) {
+    const ramGb = parseInt((build.RAM.name || '').match(/(\d+)GB/)?.[1] || '0');
+    if (ramGb < 32) {
+      const biggerRam = await prisma.hardwareComponent.findFirst({
+        where: {
+          type: 'RAM',
+          price: { gte: build.RAM.price * 1.2, lte: build.RAM.price * 3 },
+          name: { contains: '32GB' },
+        },
+        orderBy: { price: 'asc' },
+      });
+      if (biggerRam) build.RAM = biggerRam;
+    }
+
+    // Prefer NVMe Gen4 for 4K editing workflow
+    if (build.STORAGE && !/NVMe|Gen4|980 PRO|990 PRO|SN850|T700|T500/i.test(build.STORAGE.name || '')) {
+      const nvmeStorage = await prisma.hardwareComponent.findFirst({
+        where: {
+          type: 'STORAGE',
+          price: { gte: build.STORAGE.price * 0.8, lte: build.STORAGE.price * 2.5 },
+          name: { contains: 'NVMe' },
+        },
+        orderBy: { price: 'asc' },
+      });
+      if (nvmeStorage) build.STORAGE = nvmeStorage;
     }
   }
 
@@ -577,29 +684,42 @@ export async function generateBuild(request: RecommendationRequest) {
   return generateSingleBuild(request, 'balanced');
 }
 
-export async function generateTieredBuilds(request: RecommendationRequest) {
+export async function generateTieredBuilds(
+  request: RecommendationRequest,
+  signal?: AbortSignal,
+  onProgress?: (evt: ProgressEvent) => void,
+) {
   const maxBudget = request.budget;
-  const cheapestBudget = Math.max(4000000, Math.round(maxBudget * 0.35));
-  const midBudget = Math.max(7000000, Math.round(maxBudget * 0.65));
+  const tierLabels = ['value', 'balanced', 'performance'];
 
-  const cheapestReq = { ...request, budget: request.budget >= 4000000 ? cheapestBudget : maxBudget };
-  const midReq = { ...request, budget: request.budget >= 7000000 ? midBudget : maxBudget };
-  const perfReq = request;
+  onProgress?.({ step: 'start' });
 
   const [cheapest, mid, max] = await Promise.all([
-    generateSingleBuild(cheapestReq, 'value', true),
-    generateSingleBuild(midReq, 'balanced', true),
-    generateSingleBuild(perfReq, 'performance', true),
+    generateSingleBuild({ ...request, budget: maxBudget }, 'value', true, signal, onProgress, 'value'),
+    generateSingleBuild({ ...request, budget: maxBudget }, 'balanced', true, signal, onProgress, 'balanced'),
+    generateSingleBuild({ ...request, budget: maxBudget }, 'performance', true, signal, onProgress, 'performance'),
   ]);
 
   const tiers = [
-    { result: cheapest, req: cheapestReq },
-    { result: mid, req: midReq },
-    { result: max, req: perfReq },
+    { result: cheapest, req: { ...request, budget: maxBudget }, label: 'value' },
+    { result: mid, req: { ...request, budget: maxBudget }, label: 'balanced' },
+    { result: max, req: { ...request, budget: maxBudget }, label: 'performance' },
   ];
-  for (const { result, req } of tiers) {
-    result.narrative = await generateNarrativeWithLLM(result.build, req);
-    await new Promise((r) => setTimeout(r, 2000));
+  let llmFailed = false;
+  for (const { result, req, label } of tiers) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    onProgress?.({ step: 'narrative', tier: label });
+    if (!llmFailed) {
+      result.narrative = await generateNarrativeWithLLM(result.build, req);
+      if ((result.narrative as any).__llmError) {
+        llmFailed = true;
+        result.narrative = generateNarrative(result.build, req);
+      }
+    } else {
+      result.narrative = generateNarrative(result.build, req);
+    }
+    onProgress?.({ step: 'narrative', tier: label, done: true });
+    await new Promise((r) => setTimeout(r, llmFailed ? 200 : 2000));
   }
 
   return { tiers: { cheapest, mid, max }, targetBudget: maxBudget };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cpu, Zap, ShieldCheck, TrendingDown, Send, Sparkles, Bot, User, RefreshCw, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/hooks/use-theme';
 import AiLoadingOverlay from '@/components/AiLoadingOverlay';
+import type { ProgressEvent } from '@/lib/build-service';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -37,8 +38,24 @@ export default function Home() {
   const [hint, setHint] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [showChat, setShowChat] = useState(false);
+  const [pendingBuild, setPendingBuild] = useState<{ prompt: string; timestamp: number } | null>(null);
+  const [progressEvents, setProgressEvents] = useState<ProgressEvent[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Check for interrupted build on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('pending_build');
+    if (stored) {
+      try {
+        setPendingBuild(JSON.parse(stored));
+      } catch {}
+    }
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -55,42 +72,115 @@ export default function Home() {
     setShowChat(true);
     setLoading('qa');
 
+    // Save pending build before fetch for crash recovery
+    localStorage.setItem('pending_build', JSON.stringify({ prompt: userMsg, timestamp: Date.now() }));
+    setPendingBuild(null);
+
+    // Create AbortController for this request
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const onBeforeUnload = () => controller.abort();
+    window.addEventListener('beforeunload', onBeforeUnload);
+
     try {
       const res = await fetch('/api/ai/build-prompt', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userMsg, history: chatHistory }),
       });
 
-      const data = await res.json();
+      // Check if response is SSE stream (build intent) or JSON (question/invalid)
+      const contentType = res.headers.get('Content-Type') || '';
 
-      if (!res.ok) {
-        setChatHistory((prev) => [...prev, { role: 'assistant', text: data.error || 'Gagal memproses prompt' }]);
-        if (data.hint) setHint(data.hint);
-        setLoading('idle');
-        return;
-      }
+      if (contentType.includes('text/event-stream')) {
+        // ── Streaming build progress ──
+        setLoading('build');
+        setProgressEvents([]);
 
-      if (data.intent === 'question') {
-        setChatHistory((prev) => [...prev, { role: 'assistant', text: data.answer || 'Maaf, tidak ada jawaban.' }]);
-        setLoading('idle');
-      } else if (data.intent === 'invalid') {
-        setChatHistory((prev) => [
-          ...prev,
-          { role: 'assistant', text: data.reason || 'Maaf, pertanyaan tidak dapat diproses.' },
-        ]);
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
+
+          for (const part of parts) {
+            const lines = part.split('\n');
+            let eventType = 'message';
+            let data = '';
+            for (const line of lines) {
+              if (line.startsWith('event: ')) eventType = line.slice(7);
+              else if (line.startsWith('data: ')) data = line.slice(6);
+            }
+            if (!data) continue;
+
+            try {
+              const parsed = JSON.parse(data);
+
+              if (eventType === 'progress') {
+                setProgressEvents((prev) => [...prev, parsed]);
+              } else if (eventType === 'complete') {
+                localStorage.setItem('latest_build', JSON.stringify(parsed.result));
+                localStorage.setItem('build_request', JSON.stringify(parsed.request));
+                localStorage.removeItem('pending_build');
+                await new Promise((r) => setTimeout(r, 800));
+                router.push('/build/results');
+                return;
+              } else if (eventType === 'error') {
+                throw new Error(parsed.message || 'Gagal memproses build');
+              }
+            } catch {}
+          }
+        }
+
+        // Stream ended without complete event
+        setChatHistory((prev) => [...prev, { role: 'assistant', text: 'Koneksi terputus. Silakan coba lagi.' }]);
         setLoading('idle');
       } else {
-        setLoading('build');
-        localStorage.setItem('latest_build', JSON.stringify(data.result));
-        localStorage.setItem('build_request', JSON.stringify(data.request));
-        // Brief delay so user sees the build loading before redirect
-        await new Promise((r) => setTimeout(r, 800));
-        router.push('/build/results');
+        // ── JSON response (question / invalid / error) ──
+        const data = await res.json();
+
+        if (!res.ok) {
+          setChatHistory((prev) => [...prev, { role: 'assistant', text: data.error || 'Gagal memproses prompt' }]);
+          if (data.hint) setHint(data.hint);
+          setLoading('idle');
+          return;
+        }
+
+        if (data.intent === 'question') {
+          setChatHistory((prev) => [...prev, { role: 'assistant', text: data.answer || 'Maaf, tidak ada jawaban.' }]);
+          setLoading('idle');
+        } else if (data.intent === 'invalid') {
+          setChatHistory((prev) => [
+            ...prev,
+            { role: 'assistant', text: data.reason || 'Maaf, pertanyaan tidak dapat diproses.' },
+          ]);
+          setLoading('idle');
+        } else {
+          setLoading('build');
+          localStorage.setItem('latest_build', JSON.stringify(data.result));
+          localStorage.setItem('build_request', JSON.stringify(data.request));
+          localStorage.removeItem('pending_build');
+          await new Promise((r) => setTimeout(r, 800));
+          router.push('/build/results');
+        }
       }
     } catch (e: any) {
-      setChatHistory((prev) => [...prev, { role: 'assistant', text: e.message || 'Terjadi kesalahan' }]);
+      if (e.name === 'AbortError') {
+        setChatHistory((prev) => [...prev, { role: 'assistant', text: 'Proses dibatalkan.' }]);
+      } else {
+        setChatHistory((prev) => [...prev, { role: 'assistant', text: e.message || 'Terjadi kesalahan' }]);
+      }
       setLoading('idle');
+    } finally {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 
@@ -112,7 +202,9 @@ export default function Home() {
     <div
       className={`flex flex-col min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-black text-gray-200' : 'bg-gray-50 text-gray-800'}`}
     >
-      <AnimatePresence>{loading === 'build' && <AiLoadingOverlay isDarkMode={isDarkMode} />}</AnimatePresence>
+      <AnimatePresence>
+        {loading === 'build' && <AiLoadingOverlay isDarkMode={isDarkMode} progressEvents={progressEvents} />}
+      </AnimatePresence>
       {/* Navigation */}
       <nav
         className={`fixed top-0 w-full z-50 px-6 h-20 flex items-center justify-between backdrop-blur-md border-b transition-colors duration-300 ${isDarkMode ? 'bg-black/80 border-white/5' : 'bg-white/80 border-gray-200'}`}
@@ -151,6 +243,60 @@ export default function Home() {
             Dapatkan rekomendasi build PC terbaik berdasarkan budget Anda, lengkap dengan performa gaming, estabilasi
             harga termurah, dan jaminan kompatibilitas.
           </p>
+
+          {/* Recovery Banner */}
+          <AnimatePresence>
+            {pendingBuild && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className={`mb-4 p-4 rounded-2xl border flex items-center justify-between gap-4 ${
+                  isDarkMode ? 'bg-amber-900/20 border-amber-700/30' : 'bg-amber-50 border-amber-200'
+                }`}
+              >
+                <div className="text-left text-sm">
+                  <p className={`font-bold ${isDarkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+                    Build sebelumnya terputus
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-amber-400/70' : 'text-amber-600'}`}>
+                    "{pendingBuild.prompt.slice(0, 80)}
+                    {pendingBuild.prompt.length > 80 ? '...' : ''}"
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      setPrompt(pendingBuild.prompt);
+                      setPendingBuild(null);
+                      localStorage.removeItem('pending_build');
+                      textareaRef.current?.focus();
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      isDarkMode
+                        ? 'bg-amber-600 text-black hover:bg-amber-500'
+                        : 'bg-amber-500 text-white hover:bg-amber-600'
+                    }`}
+                  >
+                    Lanjutkan
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPendingBuild(null);
+                      localStorage.removeItem('pending_build');
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      isDarkMode
+                        ? 'bg-white/10 text-gray-300 hover:bg-white/20'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                    }`}
+                  >
+                    Hapus
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* AI Chat / Prompt Input */}
           <motion.div

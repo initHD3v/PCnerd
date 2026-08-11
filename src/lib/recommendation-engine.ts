@@ -416,11 +416,179 @@ export const generateLowBudgetAdvice = (budget: number) => {
   };
 };
 
+function generateStrengthsWeaknesses(
+  build: any,
+  request: RecommendationRequest,
+): { strengths: string[]; weaknesses: string[] } {
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const res = request.resolution || '1080p';
+
+  const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU.name) : null;
+  const cpuBench = build.CPU?.name ? findCpuBenchmark(build.CPU.name) : null;
+  const ramImpact = build.RAM?.name ? findRamImpact(build.RAM.name) : null;
+  const bottleneck = analyzeBottleneck(cpuBench, gpuBench, res);
+
+  const totalPrice = Object.values(build || {}).reduce((s: number, p: any) => s + (p?.price || 0), 0);
+
+  // GPU strengths
+  if (gpuBench) {
+    const fps = res === '4K' ? gpuBench.fps4k : res === '1440p' ? gpuBench.fps1440p : gpuBench.fps1080p;
+    if (request.purpose === 'Editing') {
+      const gpuVram = build.GPU?.vram || build.GPU?.memory || 0;
+      if (gpuVram >= 12) {
+        strengths.push(`GPU ${build.GPU.name} VRAM ${gpuVram}GB — sangat memadai untuk editing 4K dan timeline kompleks.`);
+      } else if (gpuVram >= 8) {
+        strengths.push(`GPU ${build.GPU.name} VRAM ${gpuVram}GB — cukup untuk editing 1080p-4K ringan.`);
+      } else {
+        weaknesses.push(`GPU ${build.GPU.name} VRAM ${gpuVram}GB — mungkin kurang untuk editing 4K dengan efek berat.`);
+      }
+      strengths.push(`GPU ${build.GPU.name} — pastikan driver Studio (NVIDIA) atau Pro (AMD) untuk stabilitas editing.`);
+    } else {
+      if (fps >= 60) {
+        strengths.push(`GPU ${build.GPU.name} mampu ~${fps} FPS di ${res} untuk game AAA, cocok untuk gameplay mulus.`);
+      } else if (fps >= 30) {
+        strengths.push(`GPU ${build.GPU.name} mampu ~${fps} FPS di ${res} untuk game AAA, cukup untuk kasual.`);
+      }
+      strengths.push(`GPU ${build.GPU.name} mencapai ~${gpuBench.fpsEsports} FPS di game E-Sports — sangat responsif.`);
+    }
+  } else {
+    weaknesses.push('Tidak ada GPU dedicated — performa gaming sangat terbatas, hanya mengandalkan iGPU.');
+  }
+
+  // CPU strengths/weaknesses
+  if (cpuBench) {
+    if (cpuBench.passmarkMulti >= 20000) {
+      strengths.push(
+        `CPU ${build.CPU.name} skor Multi-Core ${cpuBench.passmarkMulti} — monster untuk rendering dan multitasking berat.`,
+      );
+    } else if (cpuBench.passmarkMulti >= 10000) {
+      const purposeLabel = request.purpose === 'Editing' ? ' — sangat responsif untuk editing timeline' : ' — kuat untuk multitasking.';
+      strengths.push(
+        `CPU ${build.CPU.name} memiliki skor Multi-Core ${cpuBench.passmarkMulti}${purposeLabel}`,
+      );
+    } else if (cpuBench.passmarkMulti >= 5000) {
+      strengths.push(
+        `CPU ${build.CPU.name} memiliki skor Multi-Core ${cpuBench.passmarkMulti} — cukup untuk tugas sehari-hari.`,
+      );
+    } else {
+      weaknesses.push(
+        `CPU ${build.CPU.name} skor Multi-Core ${cpuBench.passmarkMulti} — mungkin lambat untuk multitasking berat.`,
+      );
+    }
+
+    // CPU F/KF without GPU
+    if (request.purpose !== 'Gaming' && /(KF|F)$/.test(build.CPU?.name || '')) {
+      weaknesses.push(`CPU ${build.CPU.name} tidak memiliki iGPU — wajib pakai GPU dedicated untuk menampilkan layar.`);
+    }
+  }
+
+  // RAM
+  if (build.RAM) {
+    const ramGb = parseInt((build.RAM.name || '').match(/(\d+)GB/)?.[1] || '0');
+    const needsRam = request.purpose === 'Editing' || request.purpose === 'Coding' || request.purpose === 'Rendering';
+    if (ramGb >= 32) {
+      strengths.push(`RAM ${ramGb}GB sangat memadai untuk ${request.purpose} dan multitasking berat.`);
+    } else if (ramGb >= 16) {
+      if (needsRam) {
+        weaknesses.push(`RAM ${ramGb}GB mungkin kurang untuk ${request.purpose} — idealnya 32GB+.`);
+      } else {
+        strengths.push(`RAM ${ramGb}GB cukup untuk ${request.purpose} dan penggunaan sehari-hari.`);
+      }
+    } else {
+      weaknesses.push(`RAM ${ramGb}GB terbatas — akan terasa lambat saat membuka banyak aplikasi.`);
+    }
+
+    if (ramImpact && ramImpact.speed !== 'DDR4-3200') {
+      const diff = Math.round((ramImpact.gamingFpsMultiplier - 1) * 100);
+      if (diff > 0) {
+        strengths.push(`RAM ${ramImpact.speed} memberikan ${diff}% performa lebih dibanding DDR4-3200.`);
+      }
+    }
+  }
+
+  // Storage
+  if (build.STORAGE) {
+    const isSSD = /SSD|NVMe/i.test(build.STORAGE.name || '');
+    const isNVMe = /NVMe/i.test(build.STORAGE.name || '');
+    const isGen4 = /Gen4|980 PRO|990 PRO|SN850|T700|T500/i.test(build.STORAGE.name || '');
+    const sizeMatch = (build.STORAGE.name || '').match(/(\d+)\s*(TB|GB)/i);
+    const size = sizeMatch ? parseInt(sizeMatch[1]) * (sizeMatch[2] === 'TB' ? 1000 : 1) : 0;
+
+    if (request.purpose === 'Editing') {
+      if (isNVMe && isGen4) {
+        strengths.push(`Storage ${build.STORAGE.name} — NVMe Gen4 sangat ideal untuk scrubbing timeline 4K dan transfer file besar.`);
+      } else if (isNVMe) {
+        strengths.push(`Storage ${build.STORAGE.name} — NVMe cukup cepat untuk proyek editing 1080p.`);
+      } else if (isSSD) {
+        weaknesses.push(`Storage ${build.STORAGE.name} — SATA SSD lambat untuk scrubbing 4K, upgrade ke NVMe sangat disarankan.`);
+      }
+    } else if (isSSD) {
+      strengths.push(`Storage ${build.STORAGE.name} — booting dan loading aplikasi cepat.`);
+    }
+
+    if (request.purpose === 'Editing' && size < 500) {
+      weaknesses.push(`Kapasitas storage ${build.STORAGE.name} terbatas — proyek 4K cepat memenuhi ruang, minimal 1TB disarankan.`);
+    } else if (size < 256) {
+      weaknesses.push(`Kapasitas storage ${build.STORAGE.name} terbatas — cepat penuh.`);
+    } else if (size >= 1000) {
+      strengths.push(
+        `Kapasitas storage ${size >= 1000 ? `${size / 1000}TB` : `${size}GB`} — lega untuk file dan game.`,
+      );
+    }
+  }
+
+  // PSU
+  if (build.PSU) {
+    const totalTdp = (build.CPU?.tdp || 0) + (build.GPU?.tdp || 0 || 100);
+    const psuWatt = build.PSU.wattage || 0;
+    if (psuWatt >= totalTdp * 1.25) {
+      strengths.push(
+        `PSU ${psuWatt}W memberikan headroom ${Math.round(((psuWatt - totalTdp) / totalTdp) * 100)}% — aman dan siap upgrade.`,
+      );
+    } else if (psuWatt < totalTdp * 1.1) {
+      weaknesses.push(`PSU ${psuWatt}W minim headroom untuk TDP ${totalTdp}W — pertimbangkan upgrade PSU.`);
+    }
+  }
+
+  // Bottleneck
+  if (bottleneck.bottleneckType !== 'Balanced') {
+    weaknesses.push(`Bottleneck: ${bottleneck.status}.`);
+  } else if (gpuBench && cpuBench) {
+    strengths.push('CPU dan GPU seimbang — tidak ada bottleneck signifikan.');
+  }
+
+  // Budget utilization
+  const pctUsed = Math.round((totalPrice / request.budget) * 100);
+  if (pctUsed >= 95) {
+    strengths.push(
+      `Build memanfaatkan ${pctUsed}% budget — optimal untuk budget Rp ${request.budget.toLocaleString('id-ID')}.`,
+    );
+  } else if (pctUsed <= 70) {
+    strengths.push(`Build hanya menggunakan ${pctUsed}% budget — ada sisa dana untuk upgrade atau peripheral.`);
+  }
+
+  // Purpose-specific
+  if (request.purpose === 'Office') {
+    if (!build.GPU) {
+      strengths.push('Mengandalkan iGPU — lebih hemat daya, cukup untuk produktivitas kantor.');
+    }
+  }
+  if (request.purpose === 'Coding' && build.RAM) {
+    const ramGb = parseInt((build.RAM.name || '').match(/(\d+)GB/)?.[1] || '0');
+    if (ramGb >= 32) {
+      strengths.push('RAM 32GB+ ideal untuk menjalankan VM, Docker, dan IDE berat secara bersamaan.');
+    }
+  }
+
+  return { strengths, weaknesses };
+}
+
 export const generateNarrative = (
   build: any,
   request: RecommendationRequest,
   isUpgrade: boolean = false,
-): { general: string; detailed: Record<string, string> } => {
+): { general: string; detailed: Record<string, string>; strengths: string[]; weaknesses: string[] } => {
   const detailed: Record<string, string> = {};
 
   const gpuBench = build.GPU?.name ? findGpuBenchmark(build.GPU.name) : null;
@@ -442,7 +610,9 @@ export const generateNarrative = (
     cpuBenchText = ` (PassMark Single: ${cpuBench.passmarkSingle}, Multi: ${cpuBench.passmarkMulti})`;
   }
 
-  detailed.CPU = `Kami memilih ${build.CPU.name} karena memiliki efisiensi daya yang baik dan performa single-core yang kuat untuk ${request.purpose}.${cpuBenchText}`;
+  if (build.CPU) {
+    detailed.CPU = `Kami memilih ${build.CPU.name} karena memiliki efisiensi daya yang baik dan performa single-core yang kuat untuk ${request.purpose}.${cpuBenchText}`;
+  }
 
   if (build.GPU) {
     detailed.GPU = `${build.GPU.name} adalah kunci utama build ini, memberikan kekuatan grafis yang optimal untuk target budget Anda.${gpuFpsText}`;
@@ -456,7 +626,11 @@ export const generateNarrative = (
     detailed.GPU = 'Menggunakan grafis terintegrasi (iGPU) untuk menghemat budget dan fokus pada performa komputasi.';
   }
 
-  detailed.MOTHERBOARD = `Motherboard dengan socket ${build.CPU.socket} dipilih untuk memastikan kompatibilitas penuh dan stabilitas sistem.`;
+  if (build.MOTHERBOARD && build.CPU?.socket) {
+    detailed.MOTHERBOARD = `Motherboard dengan socket ${build.CPU.socket} dipilih untuk memastikan kompatibilitas penuh dan stabilitas sistem.`;
+  } else if (build.MOTHERBOARD) {
+    detailed.MOTHERBOARD = `Motherboard ${build.MOTHERBOARD.name} dipilih untuk memastikan kompatibilitas penuh dan stabilitas sistem.`;
+  }
 
   if (ramImpact && build.RAM) {
     const ramDiff = Math.round((ramImpact.gamingFpsMultiplier - 1) * 100);
@@ -493,7 +667,8 @@ export const generateNarrative = (
     general += ' Tambahan investasi Anda akan sangat terasa pada stabilitas frame rate dan kecepatan load aplikasi.';
   }
 
-  return { general, detailed };
+  const { strengths, weaknesses } = generateStrengthsWeaknesses(build, request);
+  return { general, detailed, strengths, weaknesses };
 };
 
 export function getUpgradeImpact(
@@ -580,7 +755,13 @@ export async function generateNarrativeWithLLM(
   build: any,
   request: RecommendationRequest,
   isUpgrade: boolean = false,
-): Promise<{ general: string; detailed: Record<string, string>; weaknesses?: string[]; strengths?: string[] }> {
+): Promise<{
+  general: string;
+  detailed: Record<string, string>;
+  weaknesses?: string[];
+  strengths?: string[];
+  __llmError?: boolean;
+}> {
   const template = generateNarrative(build, request, isUpgrade);
 
   try {
@@ -661,7 +842,9 @@ Strengths dan weaknesses harus spesifik dengan angka, bukan template generik.`;
         return { ...template, general: result.replace(/```[\s\S]*?```/g, '').trim(), weaknesses: [], strengths: [] };
       }
     }
-  } catch {}
+  } catch {
+    return { ...template, __llmError: true as any };
+  }
 
-  return { ...template, weaknesses: [], strengths: [] };
+  return template;
 }

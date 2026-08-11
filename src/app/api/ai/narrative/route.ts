@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM, callLLMStream } from '@/lib/llm';
+import { generateNarrative } from '@/lib/recommendation-engine';
 import {
   findGpuBenchmark,
   findCpuBenchmark,
@@ -72,7 +73,13 @@ Berikan analisis yang jujur dan konstruktif. Sebutkan angka FPS dan benchmark da
               controller.enqueue(encoder.encode(chunk));
             }
           } catch {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Stream error' })));
+            const fallback = generateNarrative(build, {
+              budget: budget || 0,
+              purpose: purpose || 'Gaming',
+              includePeripheral: false,
+              resolution: res,
+            });
+            controller.enqueue(encoder.encode(JSON.stringify(fallback)));
           } finally {
             controller.close();
           }
@@ -91,14 +98,26 @@ Berikan analisis yang jujur dan konstruktif. Sebutkan angka FPS dan benchmark da
     const result = await callLLM(SYSTEM_PROMPT, userPrompt);
 
     if (!result) {
-      return NextResponse.json({ error: 'LLM tidak tersedia' }, { status: 503 });
+      const fallback = generateNarrative(build, {
+        budget: budget || 0,
+        purpose: purpose || 'Gaming',
+        includePeripheral: false,
+        resolution: res,
+      });
+      return NextResponse.json(fallback);
     }
 
     try {
       const parsed = JSON.parse(result);
       return NextResponse.json(parsed);
     } catch {
-      return NextResponse.json({ general: result, detailed: {}, weaknesses: [], strengths: [] });
+      const fallback = generateNarrative(build, {
+        budget: budget || 0,
+        purpose: purpose || 'Gaming',
+        includePeripheral: false,
+        resolution: res,
+      });
+      return NextResponse.json(fallback);
     }
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

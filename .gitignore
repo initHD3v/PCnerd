@@ -11,3 +11,4 @@ node_modules
 
 # Environment template
 .env.example
+tmp/
