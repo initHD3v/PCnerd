@@ -16,10 +16,15 @@ import {
   LayoutDashboard,
   Cpu,
   Monitor as GpuIcon,
+  MonitorDot,
   Box,
   HardDrive,
   Power,
   Fan,
+  Keyboard,
+  Mouse,
+  Headphones,
+  Volume2,
   LogOut,
   Users,
   Key,
@@ -39,8 +44,22 @@ import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
 import ThemeToggle from '@/components/ThemeToggle';
 import SyncPanel from '@/components/SyncPanel';
+import { isPeripheralType, peripheralDisplayLine } from '@/data/peripheral-specs';
 
-type ComponentType = 'CPU' | 'GPU' | 'MOTHERBOARD' | 'RAM' | 'STORAGE' | 'PSU' | 'CASE' | 'COOLER';
+type ComponentType =
+  | 'CPU'
+  | 'GPU'
+  | 'MOTHERBOARD'
+  | 'RAM'
+  | 'STORAGE'
+  | 'PSU'
+  | 'CASE'
+  | 'COOLER'
+  | 'MONITOR'
+  | 'KEYBOARD'
+  | 'MOUSE'
+  | 'HEADSET'
+  | 'SPEAKER';
 
 interface HardwareComponent {
   id: string;
@@ -78,7 +97,43 @@ const TYPE_ICONS: Record<string, any> = {
   PSU: Power,
   CASE: Box,
   COOLER: Fan,
+  MONITOR: MonitorDot,
+  KEYBOARD: Keyboard,
+  MOUSE: Mouse,
+  HEADSET: Headphones,
+  SPEAKER: Volume2,
 };
+
+const CATEGORY_TABS = [
+  'CPU',
+  'GPU',
+  'MOTHERBOARD',
+  'RAM',
+  'STORAGE',
+  'PSU',
+  'CASE',
+  'COOLER',
+  'MONITOR',
+  'KEYBOARD',
+  'MOUSE',
+  'HEADSET',
+  'SPEAKER',
+] as const;
+
+function TokopediaLink({ comp }: { comp: HardwareComponent }) {
+  if (comp.marketplace !== 'Tokopedia' || !comp.shopUrl) return null;
+  return (
+    <a
+      href={comp.shopUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Lihat di Tokopedia — ${comp.name}`}
+      className="ml-1.5 inline-flex items-center rounded-md px-1.5 py-0.5 bg-green-500/10 hover:bg-green-500/20 transition-all align-middle"
+    >
+      <img src="/tokopedia/logo.svg" alt="Tokopedia" className="h-3 w-auto pointer-events-none" />
+    </a>
+  );
+}
 
 export default function AdminDashboard() {
   const { theme } = useTheme();
@@ -354,6 +409,15 @@ export default function AdminDashboard() {
   };
 
   const uniqueBrands = useMemo(() => [...new Set(components.map((c) => c.brand))].sort(), [components]);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of components) {
+      const t = c.type || 'OTHER';
+      counts[t] = (counts[t] ?? 0) + 1;
+    }
+    return counts;
+  }, [components]);
 
   const filteredComponents = components
     .filter((c) => {
@@ -712,6 +776,7 @@ export default function AdminDashboard() {
                   onComplete={() => fetchComponents()}
                   label="Sync Tokopedia"
                   source="Tokopedia"
+                  showCategory
                 />
                 <SyncPanel
                   isDarkMode={isDarkMode}
@@ -719,6 +784,7 @@ export default function AdminDashboard() {
                   endpoint="/api/admin/sync/enterkomputer"
                   label="Sync Enterkomputer"
                   source="Enterkomputer"
+                  showCategory
                 />
                 <button
                   onClick={() => {
@@ -772,22 +838,38 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
-                {['ALL', 'CPU', 'GPU', 'MOTHERBOARD', 'RAM', 'STORAGE', 'PSU', 'CASE', 'COOLER'].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab as any)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                      activeTab === tab
-                        ? 'bg-primary text-black'
-                        : isDarkMode
-                          ? 'bg-black border border-white/5 text-gray-400 hover:bg-white/10'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {(['ALL', ...CATEGORY_TABS] as const).map((tab) => {
+                  const count = tab === 'ALL' ? components.length : (typeCounts[tab] ?? 0);
+                  const Icon = tab === 'ALL' ? Database : TYPE_ICONS[tab] || Box;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab as any)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                        activeTab === tab
+                          ? 'bg-primary text-black'
+                          : isDarkMode
+                            ? 'bg-black border border-white/5 text-gray-400 hover:bg-white/10'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {tab}
+                      <span
+                        className={`font-mono font-black text-[10px] px-1.5 py-0.5 rounded-full ${
+                          activeTab === tab
+                            ? 'bg-black/20 text-black'
+                            : isDarkMode
+                              ? 'bg-white/10 text-gray-300'
+                              : 'bg-white text-gray-500'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="flex items-center gap-3">
                 <select
@@ -883,9 +965,10 @@ export default function AdminDashboard() {
                               </div>
                               <div>
                                 <div
-                                  className={`text-sm font-bold leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                  className={`text-sm font-bold leading-none mb-1 flex items-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
                                 >
                                   {comp.name}
+                                  <TokopediaLink comp={comp} />
                                 </div>
                                 <div className="text-xs text-gray-500">{comp.brand}</div>
                               </div>
@@ -898,55 +981,9 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4">
                             <div className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {comp.type === 'RAM'
-                                ? [extractRamSize(comp.name), comp.ramType, extractRamSpeed(comp.name)]
-                                    .filter(Boolean)
-                                    .join(' · ') || comp.name
-                                : comp.type === 'STORAGE'
-                                  ? [extractStorageCapacity(comp.name), extractStorageType(comp.name), comp.formFactor]
-                                      .filter(Boolean)
-                                      .join(' · ') || comp.name
-                                  : comp.type === 'CPU'
-                                    ? [comp.model, comp.socket, comp.tdp ? `${comp.tdp}W` : '']
-                                        .filter(Boolean)
-                                        .join(' · ')
-                                    : comp.type === 'GPU'
-                                      ? [extractGpuModel(comp.name), extractGpuVram(comp.specs)]
-                                          .filter(Boolean)
-                                          .join(' · ') || comp.name
-                                      : comp.type === 'MOTHERBOARD'
-                                        ? [comp.socket, comp.ramType, comp.formFactor].filter(Boolean).join(' · ')
-                                        : comp.type === 'PSU'
-                                          ? comp.wattage
-                                            ? `${comp.wattage}W`
-                                            : '-'
-                                          : comp.type === 'CASE'
-                                            ? comp.formFactor || '-'
-                                            : comp.type === 'COOLER'
-                                              ? extractCoolerSize(comp.name) || comp.name
-                                              : comp.socket || comp.ramType || comp.formFactor || '-'}
+                              {specsForComponent(comp)}
                             </div>
-                            <div className="text-[10px] text-gray-600 mt-1 uppercase">
-                              {comp.wattage
-                                ? `${comp.wattage}W PSU`
-                                : comp.tdp
-                                  ? `${comp.tdp}W TDP`
-                                  : comp.type === 'RAM'
-                                    ? 'RAM'
-                                    : comp.type === 'STORAGE'
-                                      ? 'STORAGE'
-                                      : comp.type === 'GPU'
-                                        ? 'GPU'
-                                        : comp.type === 'CPU'
-                                          ? 'CPU'
-                                          : comp.type === 'MOTHERBOARD'
-                                            ? comp.formFactor || 'MOBO'
-                                            : comp.type === 'CASE'
-                                              ? comp.formFactor || 'CASE'
-                                              : comp.type === 'COOLER'
-                                                ? 'COOLER'
-                                                : 'Base Specs'}
-                            </div>
+                            <div className="text-[10px] text-gray-600 mt-1 uppercase">{specsLabel(comp)}</div>
                           </td>
                           <td className="px-6 py-4">
                             <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1446,6 +1483,60 @@ function extractCoolerSize(name: string): string {
 function extractGpuModel(name: string): string {
   const match = name.match(/(RTX\s*\d+\s*\w*|RX\s*\d+\s*\w*|GTX\s*\d+\s*\w*|Arc\s*\w*)/i);
   return match ? match[0] : '';
+}
+
+function specsForComponent(comp: HardwareComponent): string {
+  if (isPeripheralType(comp.type)) {
+    const line = peripheralDisplayLine(comp.type, comp.model, comp.name, comp.specs);
+    return line.length > 0 ? line.join(' · ') : '-';
+  }
+  if (comp.type === 'RAM')
+    return (
+      [extractRamSize(comp.name), comp.ramType, extractRamSpeed(comp.name)].filter(Boolean).join(' · ') || comp.name
+    );
+  if (comp.type === 'STORAGE')
+    return (
+      [extractStorageCapacity(comp.name), extractStorageType(comp.name), comp.formFactor].filter(Boolean).join(' · ') ||
+      comp.name
+    );
+  if (comp.type === 'CPU')
+    return [comp.model, comp.socket, comp.tdp ? `${comp.tdp}W` : ''].filter(Boolean).join(' · ') || comp.name;
+  if (comp.type === 'GPU')
+    return [extractGpuModel(comp.name), extractGpuVram(comp.specs)].filter(Boolean).join(' · ') || comp.name;
+  if (comp.type === 'MOTHERBOARD') return [comp.socket, comp.ramType, comp.formFactor].filter(Boolean).join(' · ');
+  if (comp.type === 'PSU') return comp.wattage ? `${comp.wattage}W` : '-';
+  if (comp.type === 'CASE') return comp.formFactor || '-';
+  if (comp.type === 'COOLER') return extractCoolerSize(comp.name) || comp.name;
+  return comp.socket || comp.ramType || comp.formFactor || '-';
+}
+
+function specsLabel(comp: HardwareComponent): string {
+  if (comp.wattage) return `${comp.wattage}W PSU`;
+  if (comp.tdp) return `${comp.tdp}W TDP`;
+  switch (comp.type) {
+    case 'RAM':
+      return 'RAM';
+    case 'STORAGE':
+      return 'STORAGE';
+    case 'GPU':
+      return 'GPU';
+    case 'CPU':
+      return 'CPU';
+    case 'MOTHERBOARD':
+      return comp.formFactor || 'MOBO';
+    case 'CASE':
+      return comp.formFactor || 'CASE';
+    case 'COOLER':
+      return 'COOLER';
+    case 'MONITOR':
+    case 'KEYBOARD':
+    case 'MOUSE':
+    case 'HEADSET':
+    case 'SPEAKER':
+      return comp.type;
+    default:
+      return 'Base Specs';
+  }
 }
 
 function LLMSettingsPanel({ isDarkMode }: { isDarkMode: boolean }) {

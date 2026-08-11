@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callLLM } from '@/lib/llm';
 import { generateTieredBuilds } from '@/lib/build-service';
 import { createRateLimiter } from '@/lib/rate-limit';
+import { isOfflineQuestion, offlineQaFallback } from '@/lib/offline-qa';
 import type { BuildPurpose, Resolution, Platform } from '@/lib/recommendation-engine';
 
 // Rate limiter: 10 requests per minute per IP
@@ -252,6 +253,7 @@ User: "Rekomendasi PSU 600W yang bagus?"
 AI: "Untuk PSU 600W, Corsair CV650 dan Cooler Master MWE 650 Bronze V2 adalah pilihan bagus di rentang harga terjangkau. Kalau budget lebih longgar, Seasonic Core GC-650 80+ Gold atau Corsair CX650 lebih efisien. Ada spesifikasi build yang mau kamu pakai? Saya bisa bantu cocokkan."
 
 HINDARI respons yang kaku dan terlalu formal. Jadilah asisten yang membantu, bukan robot yang menjawab kaku.`;
+
 function buildConversationContext(prompt: string, history?: { role: string; text: string }[]): string {
   if (!history || history.length === 0) return prompt;
   const MAX_HISTORY = 4000;
@@ -370,11 +372,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Step 1c: LLM offline rule-based classification — question-like prompts
+    // without budget/build keywords stay answerable instead of defaulting to
+    // a build request.
+    if (!llmResult && !useBuildShortcut && intent === 'build') {
+      if (isOfflineQuestion(prompt, hasBudget, Array.isArray(history) && history.length > 0)) {
+        intent = 'question';
+      }
+    }
+
     // Step 2: Handle general question (with conversation context & sanitization)
     if (intent === 'question') {
       const qaPrompt = `${contextualPrompt}\n\n${questionSummary ? `Ringkasan: ${questionSummary}` : ''}`;
       const rawAnswer = await callLLM(PROMPT_QA, qaPrompt);
-      const answer = sanitizeOutput(rawAnswer, 4000);
+      const answer = sanitizeOutput(rawAnswer, 4000) || offlineQaFallback(prompt, history);
       return NextResponse.json({
         intent: 'question',
         question: prompt,

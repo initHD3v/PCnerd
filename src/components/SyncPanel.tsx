@@ -23,23 +23,41 @@ interface SyncStatus {
   processed?: number;
 }
 
+export type SyncCategory =
+  | 'CPU'
+  | 'GPU'
+  | 'MOTHERBOARD'
+  | 'RAM'
+  | 'STORAGE'
+  | 'PSU'
+  | 'CASE'
+  | 'COOLER'
+  | 'MONITOR'
+  | 'KEYBOARD'
+  | 'MOUSE'
+  | 'HEADSET'
+  | 'SPEAKER';
+
 export default function SyncPanel({
   isDarkMode,
   onComplete,
   endpoint = '/api/admin/sync',
   label = 'Sync Prices',
   source = 'Tokopedia',
+  showCategory = false,
 }: {
   isDarkMode: boolean;
   onComplete?: () => void;
   endpoint?: string;
   label?: string;
   source?: string;
+  showCategory?: boolean;
 }) {
   const [minimized, setMinimized] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [category, setCategory] = useState<SyncCategory | 'ALL'>('ALL');
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const pollRef = useRef<(() => Promise<void>) | null>(null);
@@ -83,7 +101,11 @@ export default function SyncPanel({
     setShowPanel(true);
     setMinimized(false);
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(category === 'ALL' ? {} : { category }),
+      });
       const data = await res.json();
       if (!mountedRef.current) return;
       if (res.status === 409) {
@@ -101,7 +123,7 @@ export default function SyncPanel({
         setShowPanel(false);
       }
     }
-  }, [endpoint]);
+  }, [endpoint, category]);
 
   const closePanel = () => {
     setShowPanel(false);
@@ -114,19 +136,51 @@ export default function SyncPanel({
 
   return (
     <>
-      {/* Trigger button — always visible when not syncing */}
+      {/* Trigger area — select + button, hidden while panel is open */}
       {!showPanel && (
-        <button
-          onClick={startSync}
-          disabled={syncing}
-          className={`px-4 py-2 border rounded-lg text-sm font-semibold flex items-center gap-2 transition-all disabled:opacity-50 ${
-            isDarkMode
-              ? 'bg-black border-white/10 hover:bg-white/10 text-white'
-              : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-          }`}
-        >
-          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> {label}
-        </button>
+        <div className="flex items-center gap-2">
+          {showCategory && (
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as SyncCategory | 'ALL')}
+              disabled={syncing}
+              className={`text-xs font-bold border rounded-lg px-2 py-2 outline-none transition-all focus:border-primary/50 disabled:opacity-50 ${
+                category !== 'ALL'
+                  ? 'border-primary/30 text-primary'
+                  : isDarkMode
+                    ? 'bg-black border-white/10 text-gray-400'
+                    : 'bg-white border-gray-200 text-gray-600'
+              }`}
+              aria-label={`Kategori sync ${source}`}
+            >
+              <option value="ALL">Semua</option>
+              <option value="CPU">CPU</option>
+              <option value="GPU">GPU</option>
+              <option value="MOTHERBOARD">Motherboard</option>
+              <option value="RAM">RAM</option>
+              <option value="STORAGE">Storage</option>
+              <option value="PSU">PSU</option>
+              <option value="CASE">Case</option>
+              <option value="COOLER">Cooler</option>
+              <option value="MONITOR">Monitor</option>
+              <option value="KEYBOARD">Keyboard</option>
+              <option value="MOUSE">Mouse</option>
+              <option value="HEADSET">Headset</option>
+              <option value="SPEAKER">Speaker</option>
+            </select>
+          )}
+          <button
+            onClick={startSync}
+            disabled={syncing}
+            className={`px-4 py-2 border rounded-lg text-sm font-semibold flex items-center gap-2 transition-all disabled:opacity-50 ${
+              isDarkMode
+                ? 'bg-black border-white/10 hover:bg-white/10 text-white'
+                : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
+            }`}
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> {label}
+          </button>
+        </div>
       )}
 
       {/* Floating panel */}

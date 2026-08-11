@@ -2,6 +2,7 @@ import { PrismaLibSql } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import { PrismaClient, ComponentType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { readFileSync } from 'fs';
 
 const libsqlConfig = { url: 'file:./dev.db' };
 // @ts-ignore
@@ -847,6 +848,14 @@ async function main() {
     { name: 'Edifier G2000', brand: 'Edifier', model: 'G2000', price: 650000, type: ComponentType.SPEAKER },
   ];
   speakers.forEach((s) => add(components, s));
+
+  const peripheralSpecs = JSON.parse(
+    readFileSync(new URL('../src/data/peripheral-specs.json', import.meta.url), 'utf8'),
+  );
+  for (const c of components) {
+    const known = peripheralSpecs[`${c.type}::${c.model}`];
+    if (known) c.specs = known;
+  }
 
   try {
     console.log(`Total components to seed: ${components.length}`);

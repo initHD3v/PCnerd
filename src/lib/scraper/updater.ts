@@ -1,8 +1,33 @@
+import { ComponentType } from '@prisma/client';
 import { scrapeTokopediaPrice } from './tokopedia';
 import { scrapeEnterkomputerCatalog, matchComponentToCatalog } from './enterkomputer';
 import { prisma } from '../prisma';
 
 const DELAY_MS = 1500;
+
+export const COMPONENT_TYPES: ComponentType[] = [
+  'CPU',
+  'GPU',
+  'MOTHERBOARD',
+  'RAM',
+  'STORAGE',
+  'PSU',
+  'CASE',
+  'COOLER',
+  'MONITOR',
+  'KEYBOARD',
+  'MOUSE',
+  'HEADSET',
+  'SPEAKER',
+];
+
+export function isValidComponentType(value: unknown): value is ComponentType {
+  return typeof value === 'string' && (COMPONENT_TYPES as string[]).includes(value);
+}
+
+function typeFilter(category?: ComponentType) {
+  return category ? [{ type: category } as const] : [];
+}
 
 async function getActiveJob() {
   const job = await prisma.syncJob.findFirst({
@@ -56,18 +81,21 @@ export async function getSyncStatus() {
     : { status: 'never_run', message: 'Belum pernah ada sinkronisasi.' };
 }
 
-export async function updateAllPricesFromTokopedia() {
+export async function updateAllPricesFromTokopedia(category?: ComponentType) {
   const active = await getActiveJob();
   if (active?.status === 'running') {
     return { success: false, message: 'Sinkronisasi sudah sedang berjalan.' };
   }
 
   const jobId = await createJob();
+  const categoryLabel = category ?? 'Semua';
 
   process.nextTick(async () => {
     try {
       const components = await prisma.hardwareComponent.findMany({
-        where: { OR: [{ marketplace: 'Tokopedia' }, { marketplace: null }] },
+        where: {
+          AND: [{ OR: [{ marketplace: 'Tokopedia' }, { marketplace: null }] }, ...typeFilter(category)],
+        },
       });
       const total = components.length;
       let updated = 0;
@@ -76,7 +104,7 @@ export async function updateAllPricesFromTokopedia() {
         total,
         progress: 0,
         processed: 0,
-        message: `Memulai sinkronisasi Tokopedia: ${total} komponen...`,
+        message: `Memulai sinkronisasi Tokopedia (${categoryLabel}): ${total} komponen...`,
       });
 
       for (let i = 0; i < total; i++) {
@@ -110,7 +138,7 @@ export async function updateAllPricesFromTokopedia() {
       await updateJob(jobId, {
         status: 'completed',
         progress: 100,
-        message: `Selesai. ${updated} dari ${total} harga Tokopedia berhasil diperbarui.`,
+        message: `Selesai. ${updated} dari ${total} harga Tokopedia (${categoryLabel}) berhasil diperbarui.`,
         endedAt: new Date(),
       });
     } catch (error: any) {
@@ -121,17 +149,21 @@ export async function updateAllPricesFromTokopedia() {
   return { success: true, message: 'Sinkronisasi Tokopedia dimulai di background.' };
 }
 
-export async function updateAllPricesFromEnterkomputer() {
+export async function updateAllPricesFromEnterkomputer(category?: ComponentType) {
   const active = await getActiveJob();
   if (active?.status === 'running') {
     return { success: false, message: 'Sinkronisasi sudah sedang berjalan.' };
   }
 
   const jobId = await createJob();
+  const categoryLabel = category ?? 'Semua';
 
   process.nextTick(async () => {
     try {
-      await updateJob(jobId, { progress: 0, message: 'Memulai scraping Enterkomputer...' });
+      await updateJob(jobId, {
+        progress: 0,
+        message: `Memulai scraping Enterkomputer (${categoryLabel})...`,
+      });
 
       const catalog = await scrapeEnterkomputerCatalog((p) => {
         updateJob(jobId, {
@@ -141,7 +173,9 @@ export async function updateAllPricesFromEnterkomputer() {
       });
 
       const components = await prisma.hardwareComponent.findMany({
-        where: { OR: [{ marketplace: 'Enterkomputer' }, { marketplace: null }] },
+        where: {
+          AND: [{ OR: [{ marketplace: 'Enterkomputer' }, { marketplace: null }] }, ...typeFilter(category)],
+        },
       });
       const total = components.length;
       let updated = 0;
@@ -151,7 +185,7 @@ export async function updateAllPricesFromEnterkomputer() {
         total,
         processed: 0,
         progress: 70,
-        message: `Katalog Enterkomputer: ${catalog.length} produk. Mencocokkan ${total} komponen...`,
+        message: `Katalog Enterkomputer: ${catalog.length} produk. Mencocokkan ${total} komponen (${categoryLabel})...`,
       });
 
       for (let i = 0; i < total; i++) {
@@ -188,7 +222,7 @@ export async function updateAllPricesFromEnterkomputer() {
       await updateJob(jobId, {
         status: 'completed',
         progress: 100,
-        message: `Selesai. ${catalog.length} produk di katalog, ${matched} cocok, ${updated} harga diperbarui.`,
+        message: `Selesai. ${catalog.length} produk di katalog, ${matched} cocok, ${updated} harga diperbarui (${categoryLabel}).`,
         endedAt: new Date(),
       });
     } catch (error: any) {

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { updateAllPricesFromTokopedia, getSyncStatus } from '@/lib/scraper/updater';
+import { updateAllPricesFromTokopedia, getSyncStatus, isValidComponentType } from '@/lib/scraper/updater';
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    const result = await updateAllPricesFromTokopedia();
+    const body = await req.json().catch(() => ({}));
+    const category = isValidComponentType(body?.category) ? body.category : undefined;
+    const result = await updateAllPricesFromTokopedia(category);
     const status = result.success ? 200 : 409;
     return NextResponse.json(result, { status });
   } catch (error: any) {
