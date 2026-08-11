@@ -437,13 +437,17 @@ function generateStrengthsWeaknesses(
     if (request.purpose === 'Editing') {
       const gpuVram = build.GPU?.vram || build.GPU?.memory || 0;
       if (gpuVram >= 12) {
-        strengths.push(`GPU ${build.GPU.name} VRAM ${gpuVram}GB — sangat memadai untuk editing 4K dan timeline kompleks.`);
+        strengths.push(
+          `GPU ${build.GPU.name} VRAM ${gpuVram}GB — sangat memadai untuk editing 4K dan timeline kompleks.`,
+        );
       } else if (gpuVram >= 8) {
         strengths.push(`GPU ${build.GPU.name} VRAM ${gpuVram}GB — cukup untuk editing 1080p-4K ringan.`);
       } else {
         weaknesses.push(`GPU ${build.GPU.name} VRAM ${gpuVram}GB — mungkin kurang untuk editing 4K dengan efek berat.`);
       }
-      strengths.push(`GPU ${build.GPU.name} — pastikan driver Studio (NVIDIA) atau Pro (AMD) untuk stabilitas editing.`);
+      strengths.push(
+        `GPU ${build.GPU.name} — pastikan driver Studio (NVIDIA) atau Pro (AMD) untuk stabilitas editing.`,
+      );
     } else {
       if (fps >= 60) {
         strengths.push(`GPU ${build.GPU.name} mampu ~${fps} FPS di ${res} untuk game AAA, cocok untuk gameplay mulus.`);
@@ -463,10 +467,9 @@ function generateStrengthsWeaknesses(
         `CPU ${build.CPU.name} skor Multi-Core ${cpuBench.passmarkMulti} — monster untuk rendering dan multitasking berat.`,
       );
     } else if (cpuBench.passmarkMulti >= 10000) {
-      const purposeLabel = request.purpose === 'Editing' ? ' — sangat responsif untuk editing timeline' : ' — kuat untuk multitasking.';
-      strengths.push(
-        `CPU ${build.CPU.name} memiliki skor Multi-Core ${cpuBench.passmarkMulti}${purposeLabel}`,
-      );
+      const purposeLabel =
+        request.purpose === 'Editing' ? ' — sangat responsif untuk editing timeline' : ' — kuat untuk multitasking.';
+      strengths.push(`CPU ${build.CPU.name} memiliki skor Multi-Core ${cpuBench.passmarkMulti}${purposeLabel}`);
     } else if (cpuBench.passmarkMulti >= 5000) {
       strengths.push(
         `CPU ${build.CPU.name} memiliki skor Multi-Core ${cpuBench.passmarkMulti} — cukup untuk tugas sehari-hari.`,
@@ -517,18 +520,24 @@ function generateStrengthsWeaknesses(
 
     if (request.purpose === 'Editing') {
       if (isNVMe && isGen4) {
-        strengths.push(`Storage ${build.STORAGE.name} — NVMe Gen4 sangat ideal untuk scrubbing timeline 4K dan transfer file besar.`);
+        strengths.push(
+          `Storage ${build.STORAGE.name} — NVMe Gen4 sangat ideal untuk scrubbing timeline 4K dan transfer file besar.`,
+        );
       } else if (isNVMe) {
         strengths.push(`Storage ${build.STORAGE.name} — NVMe cukup cepat untuk proyek editing 1080p.`);
       } else if (isSSD) {
-        weaknesses.push(`Storage ${build.STORAGE.name} — SATA SSD lambat untuk scrubbing 4K, upgrade ke NVMe sangat disarankan.`);
+        weaknesses.push(
+          `Storage ${build.STORAGE.name} — SATA SSD lambat untuk scrubbing 4K, upgrade ke NVMe sangat disarankan.`,
+        );
       }
     } else if (isSSD) {
       strengths.push(`Storage ${build.STORAGE.name} — booting dan loading aplikasi cepat.`);
     }
 
     if (request.purpose === 'Editing' && size < 500) {
-      weaknesses.push(`Kapasitas storage ${build.STORAGE.name} terbatas — proyek 4K cepat memenuhi ruang, minimal 1TB disarankan.`);
+      weaknesses.push(
+        `Kapasitas storage ${build.STORAGE.name} terbatas — proyek 4K cepat memenuhi ruang, minimal 1TB disarankan.`,
+      );
     } else if (size < 256) {
       weaknesses.push(`Kapasitas storage ${build.STORAGE.name} terbatas — cepat penuh.`);
     } else if (size >= 1000) {
